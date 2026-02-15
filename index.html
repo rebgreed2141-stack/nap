@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="manifest" href="manifest.json">
+  <title>午睡チェック（入力＋表示）</title>
+  <style>
+    :root{
+      --bg:#f6f7fb; --card:#fff; --line:#e5e7eb; --text:#111827; --muted:#6b7280;
+      --btn:#111827; --btnText:#fff; --danger:#991b1b;
+    }
+    body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif; background:var(--bg); color:var(--text); }
+    header{ position:sticky; top:0; z-index:10; background:var(--card); border-bottom:1px solid var(--line); padding:12px 14px; }
+    .title{ font-weight:900; font-size:18px; margin:0 0 6px 0; }
+    .sub{ color:var(--muted); font-size:13px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+
+    .wrap{ max-width:1100px; margin:0 auto; padding:12px; }
+    .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,.05); }
+
+    .topbar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:12px; border-bottom:1px solid var(--line); }
+    .tabBtn{ padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:#fff; font-weight:900; cursor:pointer; }
+    .tabBtn.active{ background:#111827; color:#fff; border-color:#111827; }
+
+    .btn{ padding:10px 12px; border-radius:12px; border:1px solid #111827; background:var(--btn); color:var(--btnText); font-weight:900; cursor:pointer; }
+    .btn.secondary{ background:#fff; color:#111827; border:1px solid var(--line); font-weight:800; }
+    .btn.danger{ background:#fff; color:var(--danger); border:1px solid #fecaca; font-weight:900; }
+    .hint{ margin-left:auto; color:var(--muted); font-size:13px; }
+
+    .pane{ display:none; }
+    .pane.active{ display:block; }
+
+    .hours{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:12px; border-bottom:1px solid var(--line); }
+    .hours .label{ font-size:13px; color:var(--muted); font-weight:900; }
+    .hourRadio{ display:inline-flex; gap:8px; align-items:center; user-select:none; padding:10px 12px; border:1px solid var(--line); border-radius:999px; background:#fff; cursor:pointer; }
+    .hourRadio input{ transform:scale(1.2); }
+
+    .toolbar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:12px; border-bottom:1px solid var(--line); }
+    select, input[type="date"]{ font-size:16px; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:#fff; }
+
+    .status{ padding:8px 12px; color:var(--muted); font-size:13px; border-bottom:1px solid var(--line); }
+    .status b{ color:var(--text); }
+
+    table{ width:100%; border-collapse:collapse; }
+    th,td{ border-bottom:1px solid var(--line); padding:12px; vertical-align:middle; }
+    th{ background:#fafafa; color:var(--muted); font-size:13px; text-align:left; }
+    .nameCell{ font-weight:900; font-size:16px; }
+
+    .rowBtns{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .posBtn{ padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:#fff; font-weight:900; cursor:pointer; min-width:120px; }
+    .posBtn.active{ background:#111827; border:2px solid #111827; color:#fff; }
+    .clearBtn{ padding:12px 14px; border-radius:12px; border:1px solid #fecaca; background:#fff; color:var(--danger); font-weight:900; cursor:pointer; min-width:120px; }
+    .badge{ display:inline-flex; align-items:center; justify-content:center; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:900; border:1px solid var(--line); background:#fff; color:var(--muted); }
+
+    .foot{ padding:12px; color:var(--muted); font-size:12px; line-height:1.6; }
+
+    /* ===== 表示（紙っぽい） ===== */
+    .viewWrap{ padding:12px; }
+    .viewNote{ color:var(--muted); font-size:12px; margin:0 0 10px 0; line-height:1.6; }
+
+    .childRow{ display:flex; gap:10px; align-items:stretch; border:1px solid var(--line); border-radius:12px; background:#fff; overflow:hidden; margin-bottom:12px; }
+    .childNameBox{ width:160px; min-width:160px; border-right:1px solid var(--line); padding:12px; font-weight:900; display:flex; flex-direction:column; gap:8px; background:#fafafa; }
+    .firstSleep{ font-size:12px; color:var(--muted); font-weight:900; padding:6px 10px; border:1px solid var(--line); border-radius:999px; background:#fff; display:inline-flex; width:max-content; }
+    .blocks{ flex:1; padding:12px; overflow-x:auto; display:flex; gap:12px; align-items:flex-start; }
+
+    .hourBlock{ border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#fff; min-width:360px; }
+    .mini{ width:100%; border-collapse:collapse; table-layout:fixed; }
+    .mini th, .mini td{ border-bottom:1px solid var(--line); border-right:1px solid var(--line); padding:8px; text-align:center; font-size:13px; }
+    .mini tr:last-child td, .mini tr:last-child th{ border-bottom:none; }
+    .mini td:last-child, .mini th:last-child{ border-right:none; }
+    .mini .rowLabel{ width:64px; min-width:64px; background:#fafafa; color:var(--muted); font-weight:900; text-align:center; }
+    .mini .hourHead{ background:#111827; color:#fff; font-weight:900; text-align:left; padding:8px 10px; }
+    .mini .minHead{ background:#fafafa; color:var(--muted); font-weight:900; }
+    .check{ font-size:16px; font-weight:900; }
+    .blank{ color:transparent; }
+
+    @media (max-width: 600px){
+      .childNameBox{ width:130px; min-width:130px; }
+      .hourBlock{ min-width:320px; }
+      .posBtn, .clearBtn{ min-width:110px; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="title">午睡チェック（入力＋表示 / ネット不要）</div>
+  <div class="sub">
+    <span>日付を変えて編集できます</span>
+    <span>表示は「表示」タブを押した時点（スナップショット）</span>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="card">
+
+    <div class="topbar">
+      <button class="tabBtn active" id="tabInput">入力</button>
+      <button class="tabBtn" id="tabView">表示</button>
+
+      <label style="display:flex;align-items:center;gap:8px;font-weight:900;color:var(--muted);">
+        日付
+        <input type="date" id="datePicker">
+      </label>
+
+      <button class="btn secondary" id="btnRefreshView" style="display:none;">表示を更新</button>
+      <button class="btn danger" id="btnClearDay">この日付のデータ全消去</button>
+
+      <div class="hint">保存：自動（localStorage）</div>
+    </div>
+
+    <!-- ===== 入力 ===== -->
+    <div class="pane active" id="paneInput">
+      <div class="hours" id="hourRadios">
+        <div class="label">時間（1時間単位）</div>
+      </div>
+
+      <div class="toolbar">
+        <label>時刻（5分）：
+          <select id="timeSelect"></select>
+        </label>
+        <div class="hint">未選択あり / クリアあり</div>
+      </div>
+
+      <div class="status" id="inputStatus"></div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:22%">園児</th>
+            <th>記録</th>
+          </tr>
+        </thead>
+        <tbody id="inputRows"></tbody>
+      </table>
+
+      <div class="foot">
+        ■入力：時間（9時〜15時）→ 時刻（5分）→ 園児ごとに「仰向け / うつ伏せ / クリア」<br>
+        ■未選択は空欄のままでOK。<br>
+        ■「最初に寝た時間」＝その園児で、その日に最初に「仰向け or うつ伏せ」が入った時刻
+      </div>
+    </div>
+
+    <!-- ===== 表示 ===== -->
+    <div class="pane" id="paneView">
+      <div class="status" id="viewStatus"></div>
+      <div class="viewWrap">
+        <p class="viewNote">
+          ■記録が1つでもある園児だけ表示します（記録がない園児は表示しません）。<br>
+          ■時間ブロックは「記録がある時間だけ」並びます（11時→13時など、空の時間は飛びます）。
+        </p>
+        <div id="viewBody"></div>
+      </div>
+      <div class="foot">
+        ■チェック記号：✓<br>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ============================================================
+  // ★編集ポイント①：園児リスト（ここをあなたの園児名に置き換える）
+  // ※最後の行以外は「,」が必要です
+  // ============================================================
+  const CHILDREN = [
+    { id:"c001", name:"たいせい" },
+    { id:"c002", name:"あさひ" },
+    { id:"c003", name:"そら" },
+    { id:"c004", name:"せな" },
+    { id:"c005", name:"あんり" }
+  ];
+
+  // ============================================================
+  // ★編集ポイント②：運用する時間（1時間単位）
+  // ============================================================
+  const HOURS = [9,10,11,12,13,14,15];
+  const DEFAULT_HOUR = 9;
+
+  // ============================================================
+  // ★編集ポイント③：5分刻み
+  // ============================================================
+  const STEP_MIN = 5;
+  const SLOTS_PER_HOUR = 60 / STEP_MIN; // 12
+
+  function ymdToday(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function storeKey(ymd){
+    return `nap_${ymd}`;
+  }
+
+  function loadAll(ymd){
+    try{ return JSON.parse(localStorage.getItem(storeKey(ymd))) || {}; }
+    catch{ return {}; }
+  }
+
+  function saveAll(ymd, all){
+    localStorage.setItem(storeKey(ymd), JSON.stringify(all));
+  }
+
+  function clearAll(ymd){
+    localStorage.removeItem(storeKey(ymd));
+  }
+
+  function minToHHMM(min){
+    const h = Math.floor(min/60);
+    const m = min%60;
+    return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+  }
+
+  function hhmmToMin(hhmm){
+    const [h,m] = hhmm.split(":").map(Number);
+    return h*60+m;
+  }
+
+  function hourToTimes(hour){
+    const base = hour*60;
+    const out = [];
+    for(let i=0;i<SLOTS_PER_HOUR;i++){
+      out.push(minToHHMM(base + i*STEP_MIN));
+    }
+    return out;
+  }
+
+  function ensureChildren(all){
+    for(const c of CHILDREN){
+      if(!all[c.id]) all[c.id] = {};
+    }
+  }
+
+  function getPos(all, childId, time){
+    return (all[childId] && typeof all[childId][time] === "string") ? all[childId][time] : "";
+  }
+
+  function setPos(ymd, all, childId, time, value){
+    ensureChildren(all);
+    if(!all[childId]) all[childId] = {};
+    all[childId][time] = value;
+    saveAll(ymd, all);
+  }
+
+  function childHasAnyRecord(childId, sourceAll){
+    const obj = (sourceAll && sourceAll[childId]) ? sourceAll[childId] : {};
+    return Object.values(obj).some(v => v === "仰向け" || v === "うつ伏せ");
+  }
+
+  function firstSleepTime(childId, sourceAll){
+    const obj = (sourceAll && sourceAll[childId]) ? sourceAll[childId] : {};
+    const times = Object.keys(obj)
+      .filter(t => (obj[t] === "仰向け" || obj[t] === "うつ伏せ"))
+      .sort((a,b)=>hhmmToMin(a)-hhmmToMin(b));
+    return times.length ? times[0] : "";
+  }
+
+  function groupHours(childId, sourceAll){
+    const obj = (sourceAll && sourceAll[childId]) ? sourceAll[childId] : {};
+    const map = new Map();
+    for(const [t,v] of Object.entries(obj)){
+      if(v !== "仰向け" && v !== "うつ伏せ") continue;
+      const hour = Number(t.split(":")[0]);
+      if(!map.has(hour)) map.set(hour, {});
+      map.get(hour)[t] = v;
+    }
+    return Array.from(map.entries()).sort((a,b)=>a[0]-b[0]);
+  }
+
+  function deepCopy(obj){
+    return JSON.parse(JSON.stringify(obj || {}));
+  }
+
+  // ===== UI refs =====
+  const tabInput = document.getElementById("tabInput");
+  const tabView  = document.getElementById("tabView");
+  const paneInput = document.getElementById("paneInput");
+  const paneView  = document.getElementById("paneView");
+
+  const datePicker = document.getElementById("datePicker");
+  const btnRefreshView = document.getElementById("btnRefreshView");
+  const btnClearDay = document.getElementById("btnClearDay");
+
+  const hourRadios = document.getElementById("hourRadios");
+  const timeSelect = document.getElementById("timeSelect");
+  const inputRows = document.getElementById("inputRows");
+  const inputStatus = document.getElementById("inputStatus");
+
+  const viewStatus = document.getElementById("viewStatus");
+  const viewBody = document.getElementById("viewBody");
+
+  // ===== state =====
+  let selectedYMD = ymdToday();
+  let currentHour = DEFAULT_HOUR;
+  let currentTime = minToHHMM(DEFAULT_HOUR*60);
+
+  let all = loadAll(selectedYMD);
+  ensureChildren(all);
+  saveAll(selectedYMD, all);
+
+  // 表示用スナップショット（表示タブを押した時点で固定）
+  let snapshotAll = null;
+
+  function setTab(which){
+    const isInput = (which === "input");
+    tabInput.classList.toggle("active", isInput);
+    tabView.classList.toggle("active", !isInput);
+    paneInput.classList.toggle("active", isInput);
+    paneView.classList.toggle("active", !isInput);
+
+    // 表示画面だけ「表示を更新」ボタンを見せる
+    btnRefreshView.style.display = isInput ? "none" : "inline-block";
+  }
+
+  tabInput.addEventListener("click", ()=>{
+    setTab("input");
+    renderInput();
+  });
+
+  tabView.addEventListener("click", ()=>{
+    // 「表示」タブを押した時点でスナップショットを作る（ユーザーに考えさせない）
+    makeSnapshotAndRender();
+    setTab("view");
+  });
+
+  btnRefreshView.addEventListener("click", ()=>{
+    makeSnapshotAndRender();
+  });
+
+  btnClearDay.addEventListener("click", ()=>{
+    if(!confirm(`${selectedYMD} のデータを全て消去しますか？`)) return;
+    clearAll(selectedYMD);
+    all = loadAll(selectedYMD);
+    ensureChildren(all);
+    saveAll(selectedYMD, all);
+    snapshotAll = null;
+    renderInput();
+    if(paneView.classList.contains("active")){
+      viewBody.innerHTML = "";
+      viewStatus.innerHTML = `日付：<b>${selectedYMD}</b> ／ 表示園児数：<b>0</b>`;
+    }
+    alert("消去しました。");
+  });
+
+  // ===== date picker =====
+  datePicker.value = selectedYMD;
+  datePicker.addEventListener("change", ()=>{
+    selectedYMD = datePicker.value || ymdToday();
+    all = loadAll(selectedYMD);
+    ensureChildren(all);
+    saveAll(selectedYMD, all);
+
+    snapshotAll = null;
+
+    // どの画面でも迷わないように、今見ている画面を再描画
+    if(paneView.classList.contains("active")){
+      makeSnapshotAndRender();
+    }else{
+      renderInput();
+    }
+  });
+
+  // ===== hour radios =====
+  function renderHourRadios(){
+    const keep = hourRadios.firstElementChild;
+    hourRadios.innerHTML = "";
+    hourRadios.appendChild(keep);
+
+    for(const h of HOURS){
+      const label = document.createElement("label");
+      label.className = "hourRadio";
+
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = "hour";
+      input.value = String(h);
+      input.checked = (h === currentHour);
+      input.addEventListener("change", ()=>{
+        currentHour = h;
+        rebuildTimeSelect();
+        currentTime = timeSelect.value;
+        renderInput();
+      });
+
+      const span = document.createElement("span");
+      span.textContent = `${h}時`;
+
+      label.appendChild(input);
+      label.appendChild(span);
+      hourRadios.appendChild(label);
+    }
+  }
+
+  // ===== time select =====
+  function rebuildTimeSelect(){
+    const times = hourToTimes(currentHour);
+    timeSelect.innerHTML = "";
+    for(const t of times){
+      const opt = document.createElement("option");
+      opt.value = t;
+      opt.textContent = t;
+      timeSelect.appendChild(opt);
+    }
+    timeSelect.value = minToHHMM(currentHour*60);
+  }
+
+  timeSelect.addEventListener("change", ()=>{
+    currentTime = timeSelect.value;
+    renderInput();
+  });
+
+  // ===== input render =====
+  function renderInput(){
+    all = loadAll(selectedYMD);
+    ensureChildren(all);
+    saveAll(selectedYMD, all);
+
+    inputStatus.innerHTML = `日付：<b>${selectedYMD}</b> ／ 時間：<b>${currentHour}時</b> ／ 時刻：<b>${currentTime}</b>`;
+    inputRows.innerHTML = "";
+
+    for(const c of CHILDREN){
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.className = "nameCell";
+      tdName.textContent = c.name;
+      tr.appendChild(tdName);
+
+      const tdBtns = document.createElement("td");
+      const row = document.createElement("div");
+      row.className = "rowBtns";
+
+      const v = getPos(all, c.id, currentTime);
+
+      const btnSupine = document.createElement("button");
+      btnSupine.className = "posBtn" + (v==="仰向け" ? " active" : "");
+      btnSupine.textContent = "仰向け";
+      btnSupine.addEventListener("click", ()=>{
+        setPos(selectedYMD, all, c.id, currentTime, "仰向け");
+        renderInput();
+      });
+
+      const btnProne = document.createElement("button");
+      btnProne.className = "posBtn" + (v==="うつ伏せ" ? " active" : "");
+      btnProne.textContent = "うつ伏せ";
+      btnProne.addEventListener("click", ()=>{
+        setPos(selectedYMD, all, c.id, currentTime, "うつ伏せ");
+        renderInput();
+      });
+
+      const btnClear = document.createElement("button");
+      btnClear.className = "clearBtn";
+      btnClear.textContent = "クリア";
+      btnClear.addEventListener("click", ()=>{
+        setPos(selectedYMD, all, c.id, currentTime, "");
+        renderInput();
+      });
+
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = v ? v : "未選択";
+
+      row.appendChild(btnSupine);
+      row.appendChild(btnProne);
+      row.appendChild(btnClear);
+      row.appendChild(badge);
+
+      tdBtns.appendChild(row);
+      tr.appendChild(tdBtns);
+
+      inputRows.appendChild(tr);
+    }
+  }
+
+  // ===== view render (snapshot) =====
+  function makeSnapshotAndRender(){
+    all = loadAll(selectedYMD);
+    ensureChildren(all);
+    saveAll(selectedYMD, all);
+
+    snapshotAll = deepCopy(all);
+    renderSnapshot();
+  }
+
+  function renderSnapshot(){
+    const src = snapshotAll || {};
+    const targets = CHILDREN.filter(c => childHasAnyRecord(c.id, src));
+
+    viewStatus.innerHTML = `日付：<b>${selectedYMD}</b> ／ 表示園児数：<b>${targets.length}</b>（記録ありのみ）`;
+    viewBody.innerHTML = "";
+
+    if(targets.length === 0){
+      const p = document.createElement("p");
+      p.style.color = "var(--muted)";
+      p.style.padding = "12px";
+      p.textContent = "記録がある園児がいません。";
+      viewBody.appendChild(p);
+      return;
+    }
+
+    for(const c of targets){
+      const row = document.createElement("div");
+      row.className = "childRow";
+
+      const nameBox = document.createElement("div");
+      nameBox.className = "childNameBox";
+
+      const name = document.createElement("div");
+      name.textContent = c.name;
+
+      const first = firstSleepTime(c.id, src);
+      const firstTag = document.createElement("div");
+      firstTag.className = "firstSleep";
+      firstTag.textContent = `最初に寝た時間：${first || "—"}`;
+
+      nameBox.appendChild(name);
+      nameBox.appendChild(firstTag);
+
+      const blocks = document.createElement("div");
+      blocks.className = "blocks";
+
+      const hourGroups = groupHours(c.id, src);
+      for(const [hour, hourObj] of hourGroups){
+        const block = document.createElement("div");
+        block.className = "hourBlock";
+
+        const t = document.createElement("table");
+        t.className = "mini";
+
+        // 1行目：時間（○時）
+        const r1 = document.createElement("tr");
+        const thHour = document.createElement("th");
+        thHour.className = "hourHead";
+        thHour.colSpan = 13;
+        thHour.textContent = `${hour}時`;
+        r1.appendChild(thHour);
+        t.appendChild(r1);
+
+        // 2行目：0,5,...55
+        const r2 = document.createElement("tr");
+        const thBlank = document.createElement("th");
+        thBlank.className = "rowLabel minHead";
+        thBlank.textContent = "";
+        r2.appendChild(thBlank);
+
+        for(let i=0;i<SLOTS_PER_HOUR;i++){
+          const m = i*STEP_MIN;
+          const th = document.createElement("th");
+          th.className = "minHead";
+          th.textContent = String(m);
+          r2.appendChild(th);
+        }
+        t.appendChild(r2);
+
+        // 3行目：仰向け
+        const r3 = document.createElement("tr");
+        const thSup = document.createElement("th");
+        thSup.className = "rowLabel";
+        thSup.textContent = "仰向け";
+        r3.appendChild(thSup);
+
+        // 4行目：うつ伏せ
+        const r4 = document.createElement("tr");
+        const thPro = document.createElement("th");
+        thPro.className = "rowLabel";
+        thPro.textContent = "うつ伏せ";
+        r4.appendChild(thPro);
+
+        const baseHourStr = String(hour).padStart(2,"0");
+
+        for(let i=0;i<SLOTS_PER_HOUR;i++){
+          const mm = i*STEP_MIN;
+          const time = `${baseHourStr}:${String(mm).padStart(2,"0")}`;
+          const v = hourObj[time];
+
+          const tdSup = document.createElement("td");
+          const tdPro = document.createElement("td");
+
+          if(v === "仰向け"){
+            tdSup.innerHTML = `<span class="check">✓</span>`;
+            tdPro.innerHTML = `<span class="blank">✓</span>`;
+          }else if(v === "うつ伏せ"){
+            tdSup.innerHTML = `<span class="blank">✓</span>`;
+            tdPro.innerHTML = `<span class="check">✓</span>`;
+          }else{
+            tdSup.innerHTML = `<span class="blank">✓</span>`;
+            tdPro.innerHTML = `<span class="blank">✓</span>`;
+          }
+
+          r3.appendChild(tdSup);
+          r4.appendChild(tdPro);
+        }
+
+        t.appendChild(r3);
+        t.appendChild(r4);
+
+        block.appendChild(t);
+        blocks.appendChild(block);
+      }
+
+      row.appendChild(nameBox);
+      row.appendChild(blocks);
+      viewBody.appendChild(row);
+    }
+  }
+
+  // ===== init =====
+  renderHourRadios();
+  rebuildTimeSelect();
+  currentTime = timeSelect.value;
+  renderInput();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("./sw.js");
+  });
+}
+</script>
+</body>
+</html>
