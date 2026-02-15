@@ -1,12 +1,12 @@
 {
-  "name": "<午睡管理アプリ>",
-  "short_name": "<午睡管理>",
-  "description": "<園児の午睡を記録するアプリ>",
+  "name": "午睡管理アプリ",
+  "short_name": "午睡管理",
+  "description": "園児の午睡を記録するアプリ",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "<BG_COLOR>",
-  "theme_color": "<#4CAF50>",
+  "background_color": "#ffffff",
+  "theme_color": "#4CAF50",
   "orientation": "any",
   "icons": [
   {
