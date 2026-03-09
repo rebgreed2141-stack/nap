@@ -1,0 +1,1398 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>午睡チェック</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#4CAF50" />
+  <link rel="icon" href="icon-192.png" />
+  <style>
+    :root{
+      --bg:#f6f7fb;
+      --card:#ffffff;
+      --line:#e5e7eb;
+      --text:#111827;
+      --muted:#6b7280;
+      --primary:#111827;
+      --danger:#991b1b;
+      --dangerLine:#fecaca;
+      --ok:#111827;
+      --dot:#111827;
+      --today:#eef2ff;
+      --selected:#111827;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    }
+    header{
+      position:sticky;
+      top:0;
+      z-index:20;
+      background:var(--card);
+      border-bottom:1px solid var(--line);
+      padding:12px 14px;
+    }
+    .title{
+      font-size:18px;
+      font-weight:900;
+      margin:0 0 6px 0;
+    }
+    .sub{
+      font-size:12px;
+      color:var(--muted);
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+    .wrap{
+      max-width:1180px;
+      margin:0 auto;
+      padding:12px;
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:14px;
+      overflow:hidden;
+      box-shadow:0 2px 12px rgba(0,0,0,.05);
+    }
+    .topbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      padding:12px;
+      border-bottom:1px solid var(--line);
+    }
+    .tabBtn{
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-weight:900;
+      cursor:pointer;
+    }
+    .tabBtn.active{
+      background:var(--primary);
+      color:#fff;
+      border-color:var(--primary);
+    }
+    .btn{
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--primary);
+      background:var(--primary);
+      color:#fff;
+      font-weight:900;
+      cursor:pointer;
+    }
+    .btn.secondary{
+      background:#fff;
+      color:var(--primary);
+      border:1px solid var(--line);
+    }
+    .btn.danger{
+      background:#fff;
+      color:var(--danger);
+      border:1px solid var(--dangerLine);
+    }
+    .groupLabel{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      margin-right:2px;
+    }
+    select, input[type="file"]{
+      font-size:16px;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--text);
+    }
+    .hint{
+      margin-left:auto;
+      font-size:12px;
+      color:var(--muted);
+    }
+    .pane{ display:none; }
+    .pane.active{ display:block; }
+
+    .hours{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      padding:12px;
+      border-bottom:1px solid var(--line);
+    }
+    .label{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:900;
+    }
+    .hourRadio{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 12px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      background:#fff;
+      cursor:pointer;
+      user-select:none;
+    }
+    .hourRadio input{ transform:scale(1.15); }
+
+    .toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      padding:12px;
+      border-bottom:1px solid var(--line);
+    }
+    .status{
+      padding:10px 12px;
+      border-bottom:1px solid var(--line);
+      color:var(--muted);
+      font-size:13px;
+    }
+    .status b{ color:var(--text); }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+    }
+    th, td{
+      padding:12px;
+      border-bottom:1px solid var(--line);
+      vertical-align:middle;
+    }
+    th{
+      text-align:left;
+      background:#fafafa;
+      color:var(--muted);
+      font-size:13px;
+    }
+    .nameCell{
+      font-size:16px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+    .rowBtns{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+    }
+    .posBtn{
+      min-width:120px;
+      padding:12px 14px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-weight:900;
+      cursor:pointer;
+    }
+    .posBtn.active{
+      background:var(--primary);
+      color:#fff;
+      border:2px solid var(--primary);
+    }
+    .clearBtn{
+      min-width:120px;
+      padding:12px 14px;
+      border-radius:12px;
+      border:1px solid var(--dangerLine);
+      background:#fff;
+      color:var(--danger);
+      font-weight:900;
+      cursor:pointer;
+    }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+    .foot{
+      padding:12px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.7;
+    }
+
+    .viewWrap{ padding:12px; }
+    .viewNote{
+      margin:0 0 10px 0;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.6;
+    }
+    .childRow{
+      display:flex;
+      gap:10px;
+      align-items:stretch;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:#fff;
+      overflow:hidden;
+      margin-bottom:12px;
+    }
+    .childNameBox{
+      width:180px;
+      min-width:180px;
+      border-right:1px solid var(--line);
+      background:#fafafa;
+      padding:12px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      font-weight:900;
+    }
+    .firstSleep{
+      display:inline-flex;
+      width:max-content;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+    .blocks{
+      flex:1;
+      padding:12px;
+      display:flex;
+      gap:12px;
+      overflow-x:auto;
+      align-items:flex-start;
+    }
+    .hourBlock{
+      min-width:360px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      overflow:hidden;
+      background:#fff;
+    }
+    .mini{
+      width:100%;
+      border-collapse:collapse;
+      table-layout:fixed;
+    }
+    .mini th, .mini td{
+      padding:8px;
+      text-align:center;
+      font-size:13px;
+      border-bottom:1px solid var(--line);
+      border-right:1px solid var(--line);
+    }
+    .mini td:last-child, .mini th:last-child{ border-right:none; }
+    .mini tr:last-child td, .mini tr:last-child th{ border-bottom:none; }
+    .mini .rowLabel{
+      width:64px;
+      min-width:64px;
+      background:#fafafa;
+      color:var(--muted);
+      font-weight:900;
+    }
+    .mini .hourHead{
+      background:var(--primary);
+      color:#fff;
+      font-weight:900;
+      text-align:left;
+      padding:8px 10px;
+    }
+    .mini .minHead{
+      background:#fafafa;
+      color:var(--muted);
+      font-weight:900;
+    }
+    .check{
+      font-size:16px;
+      font-weight:900;
+    }
+    .blank{
+      color:transparent;
+    }
+
+    .calendarWrap{
+      padding:12px;
+    }
+    .calendarBar{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-bottom:12px;
+      flex-wrap:wrap;
+    }
+    .calendarTitle{
+      font-size:18px;
+      font-weight:900;
+      min-width:130px;
+    }
+    .calendarGrid{
+      display:grid;
+      grid-template-columns:repeat(7,1fr);
+      gap:8px;
+    }
+    .dow{
+      text-align:center;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      padding:8px 4px;
+    }
+    .dayCell{
+      min-height:86px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:#fff;
+      padding:8px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      cursor:pointer;
+    }
+    .dayCell.outside{
+      background:#f9fafb;
+      color:#9ca3af;
+      cursor:default;
+    }
+    .dayCell.today{
+      background:var(--today);
+    }
+    .dayCell.selected{
+      outline:2px solid var(--selected);
+      outline-offset:-2px;
+    }
+    .dayTop{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:6px;
+    }
+    .dayNum{
+      font-size:15px;
+      font-weight:900;
+      line-height:1;
+    }
+    .recordMark{
+      font-size:12px;
+      font-weight:900;
+      color:var(--dot);
+      white-space:nowrap;
+    }
+    .dayBottom{
+      margin-top:auto;
+      font-size:11px;
+      color:var(--muted);
+      line-height:1.2;
+    }
+
+    @media (max-width:720px){
+      .childNameBox{
+        width:140px;
+        min-width:140px;
+      }
+      .hourBlock{
+        min-width:320px;
+      }
+      .posBtn, .clearBtn{
+        min-width:108px;
+      }
+      .dayCell{
+        min-height:74px;
+        padding:6px;
+      }
+      .calendarGrid{
+        gap:6px;
+      }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="title">午睡チェック（ネット不要）</div>
+  <div class="sub">
+    <span>入力モード・記録・カレンダーを切り替えできます</span>
+    <span>保存：自動（localStorage）</span>
+    <span>年度バックアップ／復元／削除に対応</span>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <div class="topbar">
+      <button class="tabBtn active" id="tabInput">入力モード</button>
+      <button class="tabBtn" id="tabRecord">3月1日の記録</button>
+      <button class="tabBtn" id="tabCalendar">カレンダー</button>
+
+      <span class="groupLabel">年度</span>
+      <select id="yearSelect"></select>
+
+      <button class="btn secondary" id="btnBackup">年度バックアップ</button>
+      <button class="btn secondary" id="btnRestore">データ復元</button>
+      <button class="btn danger" id="btnDeleteYear">年度データ削除</button>
+
+      <input type="file" id="restoreZipInput" accept=".zip,application/zip" style="display:none" />
+
+      <div class="hint" id="topHint">読み込み中...</div>
+    </div>
+
+    <div class="pane active" id="paneInput">
+      <div class="hours" id="hourRadios">
+        <div class="label">時間（1時間単位）</div>
+      </div>
+
+      <div class="toolbar">
+        <label>時刻（5分）
+          <select id="timeSelect"></select>
+        </label>
+        <div class="hint">未選択あり / クリアあり</div>
+      </div>
+
+      <div class="status" id="inputStatus"></div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:30%">園児</th>
+            <th>記録</th>
+          </tr>
+        </thead>
+        <tbody id="inputRows"></tbody>
+      </table>
+
+      <div class="foot">
+        ■入力：時間 → 時刻 → 園児ごとに「仰向け / うつ伏せ / クリア」<br>
+        ■未選択は空欄のままでOKです。<br>
+        ■「最初に寝た時間」＝その園児で、その日に最初に「仰向け / うつ伏せ」が入った時刻です。
+      </div>
+    </div>
+
+    <div class="pane" id="paneRecord">
+      <div class="status" id="viewStatus"></div>
+      <div class="viewWrap">
+        <p class="viewNote">
+          ■記録が1つでもある園児だけ表示します。<br>
+          ■時間ブロックは記録がある時間だけ表示します。
+        </p>
+        <div id="viewBody"></div>
+      </div>
+      <div class="foot">■チェック記号：✓</div>
+    </div>
+
+    <div class="pane" id="paneCalendar">
+      <div class="status" id="calendarStatus"></div>
+      <div class="calendarWrap">
+        <div class="calendarBar">
+          <button class="btn secondary" id="btnPrevMonth">↑</button>
+          <div class="calendarTitle" id="calendarTitle">2026年 4月</div>
+          <button class="btn secondary" id="btnNextMonth">↓</button>
+        </div>
+        <div class="calendarGrid" id="calendarGrid"></div>
+      </div>
+      <div class="foot">
+        ■日付を押すと、その日付の入力モードを開きます。<br>
+        ■「●＋人数」は、その日に記録がある園児数です。
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+  const HOURS = [9,10,11,12,13,14,15];
+  const DEFAULT_HOUR = 9;
+  const STEP_MIN = 5;
+  const SLOTS_PER_HOUR = 60 / STEP_MIN;
+  const DAY_TIMES = buildAllTimes();
+
+  const tabInput = document.getElementById("tabInput");
+  const tabRecord = document.getElementById("tabRecord");
+  const tabCalendar = document.getElementById("tabCalendar");
+
+  const paneInput = document.getElementById("paneInput");
+  const paneRecord = document.getElementById("paneRecord");
+  const paneCalendar = document.getElementById("paneCalendar");
+
+  const yearSelect = document.getElementById("yearSelect");
+  const btnBackup = document.getElementById("btnBackup");
+  const btnRestore = document.getElementById("btnRestore");
+  const btnDeleteYear = document.getElementById("btnDeleteYear");
+  const restoreZipInput = document.getElementById("restoreZipInput");
+
+  const hourRadios = document.getElementById("hourRadios");
+  const timeSelect = document.getElementById("timeSelect");
+  const inputStatus = document.getElementById("inputStatus");
+  const inputRows = document.getElementById("inputRows");
+
+  const viewStatus = document.getElementById("viewStatus");
+  const viewBody = document.getElementById("viewBody");
+
+  const calendarStatus = document.getElementById("calendarStatus");
+  const calendarTitle = document.getElementById("calendarTitle");
+  const calendarGrid = document.getElementById("calendarGrid");
+  const btnPrevMonth = document.getElementById("btnPrevMonth");
+  const btnNextMonth = document.getElementById("btnNextMonth");
+
+  const topHint = document.getElementById("topHint");
+
+  let CHILDREN = [];
+  let childMap = new Map();
+
+  let selectedYMD = ymdToday();
+  let currentHour = DEFAULT_HOUR;
+  let currentTime = minToHHMM(DEFAULT_HOUR * 60);
+  let currentPane = "input";
+  let snapshotAll = null;
+
+  const selectedDateObj = ymdToDate(selectedYMD);
+  let calendarYear = selectedDateObj.getFullYear();
+  let calendarMonth = selectedDateObj.getMonth();
+
+  init();
+
+  async function init(){
+    try{
+      CHILDREN = await loadChildren();
+      childMap = new Map(CHILDREN.map(c => [c.id, c.name]));
+      renderYearSelect();
+      renderHourRadios();
+      rebuildTimeSelect();
+      currentTime = timeSelect.value;
+      updateRecordTabLabel();
+      renderInput();
+      renderCalendar();
+      updateTopHint("準備完了");
+    }catch(err){
+      console.error(err);
+      alert("child.json の読み込みに失敗しました。");
+      updateTopHint("child.json 読み込み失敗");
+    }
+  }
+
+  async function loadChildren(){
+    const res = await fetch("./child.json", { cache:"no-store" });
+    if(!res.ok) throw new Error("child.json fetch failed");
+    const json = await res.json();
+    return Array.isArray(json) ? json : [];
+  }
+
+  function buildAllTimes(){
+    const out = [];
+    for(const h of HOURS){
+      for(let i=0;i<SLOTS_PER_HOUR;i++){
+        out.push(minToHHMM(h * 60 + i * STEP_MIN));
+      }
+    }
+    return out;
+  }
+
+  function ymdToday(){
+    const d = new Date();
+    return dateToYmd(d);
+  }
+
+  function dateToYmd(d){
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function ymdToDate(ymd){
+    const [y,m,d] = ymd.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  function ymdToLabelNoYear(ymd){
+    const d = ymdToDate(ymd);
+    return `${d.getMonth() + 1}月${d.getDate()}日の記録`;
+  }
+
+  function minToHHMM(min){
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+  }
+
+  function hhmmToMin(hhmm){
+    const [h,m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+  }
+
+  function hourToTimes(hour){
+    const base = hour * 60;
+    const out = [];
+    for(let i=0;i<SLOTS_PER_HOUR;i++){
+      out.push(minToHHMM(base + i * STEP_MIN));
+    }
+    return out;
+  }
+
+  function storeKey(ymd){
+    return `nap_${ymd}`;
+  }
+
+  function loadAll(ymd){
+    try{
+      const raw = localStorage.getItem(storeKey(ymd));
+      const parsed = raw ? JSON.parse(raw) : {};
+      return normalizeDayData(parsed);
+    }catch{
+      return normalizeDayData({});
+    }
+  }
+
+  function saveAll(ymd, all){
+    localStorage.setItem(storeKey(ymd), JSON.stringify(normalizeDayData(all)));
+  }
+
+  function clearAll(ymd){
+    localStorage.removeItem(storeKey(ymd));
+  }
+
+  function normalizeDayData(source){
+    const out = {};
+    for(const child of CHILDREN){
+      out[child.id] = {};
+      const src = source && source[child.id] && typeof source[child.id] === "object" ? source[child.id] : {};
+      for(const [time, value] of Object.entries(src)){
+        if(DAY_TIMES.includes(time) && (value === "仰向け" || value === "うつ伏せ")){
+          out[child.id][time] = value;
+        }
+      }
+    }
+    return out;
+  }
+
+  function ensureDaySaved(ymd){
+    const all = loadAll(ymd);
+    saveAll(ymd, all);
+    return all;
+  }
+
+  function getPos(all, childId, time){
+    return all[childId] && typeof all[childId][time] === "string" ? all[childId][time] : "";
+  }
+
+  function setPos(ymd, childId, time, value){
+    const all = loadAll(ymd);
+    if(!all[childId]) all[childId] = {};
+    if(value === "仰向け" || value === "うつ伏せ"){
+      all[childId][time] = value;
+    }else{
+      delete all[childId][time];
+    }
+    saveAll(ymd, all);
+  }
+
+  function childHasAnyRecord(childId, sourceAll){
+    const obj = sourceAll && sourceAll[childId] ? sourceAll[childId] : {};
+    return Object.keys(obj).length > 0;
+  }
+
+  function childCountWithRecord(ymd){
+    const all = loadAll(ymd);
+    return CHILDREN.filter(c => childHasAnyRecord(c.id, all)).length;
+  }
+
+  function firstSleepTime(childId, sourceAll){
+    const obj = sourceAll && sourceAll[childId] ? sourceAll[childId] : {};
+    const times = Object.keys(obj).sort((a,b)=>hhmmToMin(a) - hhmmToMin(b));
+    return times.length ? times[0] : "";
+  }
+
+  function groupHours(childId, sourceAll){
+    const obj = sourceAll && sourceAll[childId] ? sourceAll[childId] : {};
+    const map = new Map();
+    for(const [time, value] of Object.entries(obj)){
+      const hour = Number(time.split(":")[0]);
+      if(!map.has(hour)) map.set(hour, {});
+      map.get(hour)[time] = value;
+    }
+    return Array.from(map.entries()).sort((a,b)=>a[0]-b[0]);
+  }
+
+  function deepCopy(obj){
+    return JSON.parse(JSON.stringify(obj || {}));
+  }
+
+  function setPane(name){
+    currentPane = name;
+
+    tabInput.classList.toggle("active", name === "input");
+    tabRecord.classList.toggle("active", name === "record");
+    tabCalendar.classList.toggle("active", name === "calendar");
+
+    paneInput.classList.toggle("active", name === "input");
+    paneRecord.classList.toggle("active", name === "record");
+    paneCalendar.classList.toggle("active", name === "calendar");
+
+    if(name === "input"){
+      renderInput();
+    }else if(name === "record"){
+      makeSnapshotAndRender();
+    }else if(name === "calendar"){
+      renderCalendar();
+    }
+  }
+
+  tabInput.addEventListener("click", ()=> setPane("input"));
+  tabRecord.addEventListener("click", ()=> setPane("record"));
+  tabCalendar.addEventListener("click", ()=> setPane("calendar"));
+
+  function updateRecordTabLabel(){
+    tabRecord.textContent = ymdToLabelNoYear(selectedYMD);
+  }
+
+  function rebuildTimeSelect(){
+    const times = hourToTimes(currentHour);
+    timeSelect.innerHTML = "";
+    for(const t of times){
+      const opt = document.createElement("option");
+      opt.value = t;
+      opt.textContent = t;
+      timeSelect.appendChild(opt);
+    }
+    timeSelect.value = minToHHMM(currentHour * 60);
+  }
+
+  function renderHourRadios(){
+    const keep = hourRadios.firstElementChild;
+    hourRadios.innerHTML = "";
+    hourRadios.appendChild(keep);
+
+    for(const h of HOURS){
+      const label = document.createElement("label");
+      label.className = "hourRadio";
+
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = "hour";
+      input.value = String(h);
+      input.checked = (h === currentHour);
+      input.addEventListener("change", ()=>{
+        currentHour = h;
+        rebuildTimeSelect();
+        currentTime = timeSelect.value;
+        renderInput();
+      });
+
+      const span = document.createElement("span");
+      span.textContent = `${h}時`;
+
+      label.appendChild(input);
+      label.appendChild(span);
+      hourRadios.appendChild(label);
+    }
+  }
+
+  timeSelect.addEventListener("change", ()=>{
+    currentTime = timeSelect.value;
+    renderInput();
+  });
+
+  function renderInput(){
+    const all = ensureDaySaved(selectedYMD);
+    inputStatus.innerHTML = `日付：<b>${selectedYMD}</b> ／ 時間：<b>${currentHour}時</b> ／ 時刻：<b>${currentTime}</b>`;
+    inputRows.innerHTML = "";
+
+    for(const c of CHILDREN){
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.className = "nameCell";
+      tdName.textContent = c.name;
+      tr.appendChild(tdName);
+
+      const tdBtns = document.createElement("td");
+      const row = document.createElement("div");
+      row.className = "rowBtns";
+
+      const v = getPos(all, c.id, currentTime);
+
+      const btnSupine = document.createElement("button");
+      btnSupine.type = "button";
+      btnSupine.className = "posBtn" + (v === "仰向け" ? " active" : "");
+      btnSupine.textContent = "仰向け";
+      btnSupine.addEventListener("click", ()=>{
+        setPos(selectedYMD, c.id, currentTime, "仰向け");
+        renderInput();
+        renderCalendarStatusOnly();
+      });
+
+      const btnProne = document.createElement("button");
+      btnProne.type = "button";
+      btnProne.className = "posBtn" + (v === "うつ伏せ" ? " active" : "");
+      btnProne.textContent = "うつ伏せ";
+      btnProne.addEventListener("click", ()=>{
+        setPos(selectedYMD, c.id, currentTime, "うつ伏せ");
+        renderInput();
+        renderCalendarStatusOnly();
+      });
+
+      const btnClear = document.createElement("button");
+      btnClear.type = "button";
+      btnClear.className = "clearBtn";
+      btnClear.textContent = "クリア";
+      btnClear.addEventListener("click", ()=>{
+        setPos(selectedYMD, c.id, currentTime, "");
+        renderInput();
+        renderCalendarStatusOnly();
+      });
+
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = v || "未選択";
+
+      row.appendChild(btnSupine);
+      row.appendChild(btnProne);
+      row.appendChild(btnClear);
+      row.appendChild(badge);
+
+      tdBtns.appendChild(row);
+      tr.appendChild(tdBtns);
+
+      inputRows.appendChild(tr);
+    }
+
+    updateRecordTabLabel();
+  }
+
+  function makeSnapshotAndRender(){
+    snapshotAll = deepCopy(ensureDaySaved(selectedYMD));
+    renderSnapshot();
+  }
+
+  function renderSnapshot(){
+    const src = snapshotAll || {};
+    const targets = CHILDREN.filter(c => childHasAnyRecord(c.id, src));
+
+    viewStatus.innerHTML = `日付：<b>${selectedYMD}</b> ／ 表示園児数：<b>${targets.length}</b>`;
+    viewBody.innerHTML = "";
+
+    if(targets.length === 0){
+      const p = document.createElement("p");
+      p.style.color = "var(--muted)";
+      p.style.padding = "12px";
+      p.textContent = "記録がある園児がいません。";
+      viewBody.appendChild(p);
+      return;
+    }
+
+    for(const c of targets){
+      const row = document.createElement("div");
+      row.className = "childRow";
+
+      const nameBox = document.createElement("div");
+      nameBox.className = "childNameBox";
+
+      const name = document.createElement("div");
+      name.textContent = c.name;
+
+      const firstTag = document.createElement("div");
+      firstTag.className = "firstSleep";
+      firstTag.textContent = `最初に寝た時間：${firstSleepTime(c.id, src) || "—"}`;
+
+      nameBox.appendChild(name);
+      nameBox.appendChild(firstTag);
+
+      const blocks = document.createElement("div");
+      blocks.className = "blocks";
+
+      const hourGroups = groupHours(c.id, src);
+      for(const [hour, hourObj] of hourGroups){
+        const block = document.createElement("div");
+        block.className = "hourBlock";
+
+        const t = document.createElement("table");
+        t.className = "mini";
+
+        const r1 = document.createElement("tr");
+        const thHour = document.createElement("th");
+        thHour.className = "hourHead";
+        thHour.colSpan = 13;
+        thHour.textContent = `${hour}時`;
+        r1.appendChild(thHour);
+        t.appendChild(r1);
+
+        const r2 = document.createElement("tr");
+        const thBlank = document.createElement("th");
+        thBlank.className = "rowLabel minHead";
+        thBlank.textContent = "";
+        r2.appendChild(thBlank);
+
+        for(let i=0;i<SLOTS_PER_HOUR;i++){
+          const m = i * STEP_MIN;
+          const th = document.createElement("th");
+          th.className = "minHead";
+          th.textContent = String(m);
+          r2.appendChild(th);
+        }
+        t.appendChild(r2);
+
+        const r3 = document.createElement("tr");
+        const thSup = document.createElement("th");
+        thSup.className = "rowLabel";
+        thSup.textContent = "仰向け";
+        r3.appendChild(thSup);
+
+        const r4 = document.createElement("tr");
+        const thPro = document.createElement("th");
+        thPro.className = "rowLabel";
+        thPro.textContent = "うつ伏せ";
+        r4.appendChild(thPro);
+
+        const baseHourStr = String(hour).padStart(2,"0");
+
+        for(let i=0;i<SLOTS_PER_HOUR;i++){
+          const mm = i * STEP_MIN;
+          const time = `${baseHourStr}:${String(mm).padStart(2,"0")}`;
+          const v = hourObj[time];
+
+          const tdSup = document.createElement("td");
+          const tdPro = document.createElement("td");
+
+          if(v === "仰向け"){
+            tdSup.innerHTML = '<span class="check">✓</span>';
+            tdPro.innerHTML = '<span class="blank">✓</span>';
+          }else if(v === "うつ伏せ"){
+            tdSup.innerHTML = '<span class="blank">✓</span>';
+            tdPro.innerHTML = '<span class="check">✓</span>';
+          }else{
+            tdSup.innerHTML = '<span class="blank">✓</span>';
+            tdPro.innerHTML = '<span class="blank">✓</span>';
+          }
+
+          r3.appendChild(tdSup);
+          r4.appendChild(tdPro);
+        }
+
+        t.appendChild(r3);
+        t.appendChild(r4);
+
+        block.appendChild(t);
+        blocks.appendChild(block);
+      }
+
+      row.appendChild(nameBox);
+      row.appendChild(blocks);
+      viewBody.appendChild(row);
+    }
+  }
+
+  function renderCalendarStatusOnly(){
+    const count = childCountWithRecord(selectedYMD);
+    calendarStatus.innerHTML = `選択日：<b>${selectedYMD}</b> ／ 記録園児数：<b>${count}</b>`;
+    if(currentPane === "calendar"){
+      renderCalendar();
+    }
+  }
+
+  function renderCalendar(){
+    renderCalendarStatusOnlyBase();
+    calendarTitle.textContent = `${calendarYear}年 ${calendarMonth + 1}月`;
+    calendarGrid.innerHTML = "";
+
+    const dows = ["日","月","火","水","木","金","土"];
+    for(const dow of dows){
+      const el = document.createElement("div");
+      el.className = "dow";
+      el.textContent = dow;
+      calendarGrid.appendChild(el);
+    }
+
+    const firstDay = new Date(calendarYear, calendarMonth, 1);
+    const lastDay = new Date(calendarYear, calendarMonth + 1, 0);
+    const startIndex = firstDay.getDay();
+    const daysInMonth = lastDay.getDate();
+
+    const prevLastDay = new Date(calendarYear, calendarMonth, 0).getDate();
+
+    for(let i=0;i<42;i++){
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "dayCell";
+
+      let year = calendarYear;
+      let month = calendarMonth;
+      let dayNum = 0;
+      let outside = false;
+
+      if(i < startIndex){
+        outside = true;
+        dayNum = prevLastDay - startIndex + i + 1;
+        const prev = new Date(calendarYear, calendarMonth, 0);
+        year = prev.getFullYear();
+        month = prev.getMonth();
+      }else if(i >= startIndex + daysInMonth){
+        outside = true;
+        dayNum = i - (startIndex + daysInMonth) + 1;
+        const next = new Date(calendarYear, calendarMonth + 1, 1);
+        year = next.getFullYear();
+        month = next.getMonth();
+      }else{
+        dayNum = i - startIndex + 1;
+      }
+
+      const d = new Date(year, month, dayNum);
+      const ymd = dateToYmd(d);
+      const count = childCountWithRecord(ymd);
+      const isToday = ymd === ymdToday();
+      const isSelected = ymd === selectedYMD;
+
+      if(outside) cell.classList.add("outside");
+      if(isToday) cell.classList.add("today");
+      if(isSelected) cell.classList.add("selected");
+
+      const top = document.createElement("div");
+      top.className = "dayTop";
+
+      const num = document.createElement("div");
+      num.className = "dayNum";
+      num.textContent = dayNum;
+
+      const mark = document.createElement("div");
+      mark.className = "recordMark";
+      mark.textContent = count > 0 ? `●${count}` : "";
+
+      top.appendChild(num);
+      top.appendChild(mark);
+
+      const bottom = document.createElement("div");
+      bottom.className = "dayBottom";
+      bottom.textContent = isToday ? "今日" : "";
+
+      cell.appendChild(top);
+      cell.appendChild(bottom);
+
+      if(!outside){
+        cell.addEventListener("click", ()=>{
+          selectedYMD = ymd;
+          updateRecordTabLabel();
+          renderInput();
+          setPane("input");
+        });
+      }else{
+        cell.disabled = true;
+      }
+
+      calendarGrid.appendChild(cell);
+    }
+  }
+
+  function renderCalendarStatusOnlyBase(){
+    const count = childCountWithRecord(selectedYMD);
+    calendarStatus.innerHTML = `選択日：<b>${selectedYMD}</b> ／ 記録園児数：<b>${count}</b>`;
+  }
+
+  btnPrevMonth.addEventListener("click", ()=>{
+    const d = new Date(calendarYear, calendarMonth - 1, 1);
+    calendarYear = d.getFullYear();
+    calendarMonth = d.getMonth();
+    renderCalendar();
+  });
+
+  btnNextMonth.addEventListener("click", ()=>{
+    const d = new Date(calendarYear, calendarMonth + 1, 1);
+    calendarYear = d.getFullYear();
+    calendarMonth = d.getMonth();
+    renderCalendar();
+  });
+
+  function fiscalYearFromYmd(ymd){
+    const [y,m] = ymd.split("-").map(Number);
+    return m >= 4 ? y : y - 1;
+  }
+
+  function fiscalYearRange(startYear){
+    return {
+      start: `${startYear}-04-01`,
+      end: `${startYear + 1}-03-31`
+    };
+  }
+
+  function listExistingYMDs(){
+    const out = [];
+    for(let i=0;i<localStorage.length;i++){
+      const key = localStorage.key(i);
+      if(/^nap_\d{4}-\d{2}-\d{2}$/.test(key)){
+        out.push(key.replace("nap_",""));
+      }
+    }
+    return out.sort();
+  }
+
+  function getAvailableFiscalYears(){
+    const years = new Set();
+    years.add(fiscalYearFromYmd(selectedYMD));
+    years.add(fiscalYearFromYmd(ymdToday()));
+
+    for(const ymd of listExistingYMDs()){
+      years.add(fiscalYearFromYmd(ymd));
+    }
+
+    return Array.from(years).sort((a,b)=>a-b);
+  }
+
+  function renderYearSelect(){
+    const years = getAvailableFiscalYears();
+    const selected = fiscalYearFromYmd(selectedYMD);
+    yearSelect.innerHTML = "";
+
+    for(const y of years){
+      const opt = document.createElement("option");
+      opt.value = String(y);
+      opt.textContent = `${y}年度`;
+      if(y === selected) opt.selected = true;
+      yearSelect.appendChild(opt);
+    }
+  }
+
+  function escapeCsv(value){
+    const s = String(value ?? "");
+    if(/[",\n]/.test(s)){
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  }
+
+  function csvHeader(){
+    return ["childId","childName",...DAY_TIMES];
+  }
+
+  function buildCsvForDay(ymd){
+    const all = loadAll(ymd);
+    const rows = [];
+    const header = csvHeader();
+
+    rows.push(header.map(escapeCsv).join(","));
+
+    for(const child of CHILDREN){
+      const obj = all[child.id] || {};
+      const hasAny = DAY_TIMES.some(t => obj[t] === "仰向け" || obj[t] === "うつ伏せ");
+      if(!hasAny) continue;
+
+      const row = [child.id, child.name, ...DAY_TIMES.map(t => obj[t] || "")];
+      rows.push(row.map(escapeCsv).join(","));
+    }
+
+    return rows.join("\r\n");
+  }
+
+  function parseCsvLine(line){
+    const result = [];
+    let current = "";
+    let inQuotes = false;
+
+    for(let i=0;i<line.length;i++){
+      const ch = line[i];
+      const next = line[i+1];
+
+      if(ch === '"' && inQuotes && next === '"'){
+        current += '"';
+        i++;
+      }else if(ch === '"'){
+        inQuotes = !inQuotes;
+      }else if(ch === "," && !inQuotes){
+        result.push(current);
+        current = "";
+      }else{
+        current += ch;
+      }
+    }
+    result.push(current);
+    return result;
+  }
+
+  function parseCsv(text){
+    const lines = text.replace(/\r/g,"").split("\n").filter(line => line !== "");
+    if(lines.length === 0) return null;
+
+    const header = parseCsvLine(lines[0]);
+    const expected = csvHeader();
+
+    if(header.length !== expected.length) return null;
+    for(let i=0;i<expected.length;i++){
+      if(header[i] !== expected[i]) return null;
+    }
+
+    const rows = [];
+    for(let i=1;i<lines.length;i++){
+      const cols = parseCsvLine(lines[i]);
+      if(cols.length < expected.length){
+        while(cols.length < expected.length) cols.push("");
+      }
+      rows.push(cols.slice(0, expected.length));
+    }
+    return rows;
+  }
+
+  function overwriteDayFromCsvRows(ymd, rows){
+    const day = normalizeDayData({});
+    for(const row of rows){
+      const childId = row[0];
+      if(!childMap.has(childId)) continue;
+
+      if(!day[childId]) day[childId] = {};
+      for(let i=0;i<DAY_TIMES.length;i++){
+        const value = row[i + 2] || "";
+        if(value === "仰向け" || value === "うつ伏せ"){
+          day[childId][DAY_TIMES[i]] = value;
+        }
+      }
+    }
+    saveAll(ymd, day);
+  }
+
+  async function backupFiscalYearZip(startYear){
+    if(typeof JSZip === "undefined"){
+      alert("ZIPライブラリを読み込めませんでした。");
+      return;
+    }
+
+    updateTopHint("ZIP作成中...");
+    const zip = new JSZip();
+    const range = fiscalYearRange(startYear);
+
+    let current = ymdToDate(range.start);
+    const end = ymdToDate(range.end);
+    let fileCount = 0;
+
+    while(current <= end){
+      const ymd = dateToYmd(current);
+      const count = childCountWithRecord(ymd);
+      if(count > 0){
+        zip.file(`nap_${ymd}.csv`, buildCsvForDay(ymd));
+        fileCount++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    const blob = await zip.generateAsync({ type:"blob" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `nap_backup_${startYear}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+
+    updateTopHint(`年度バックアップ完了（${fileCount}ファイル）`);
+  }
+
+  async function restoreFiscalYearZip(file){
+    if(typeof JSZip === "undefined"){
+      alert("ZIPライブラリを読み込めませんでした。");
+      return;
+    }
+
+    updateTopHint("ZIP復元中...");
+    const zip = await JSZip.loadAsync(file);
+    const entries = Object.keys(zip.files).filter(name => /^nap_\d{4}-\d{2}-\d{2}\.csv$/i.test(name));
+
+    let imported = 0;
+
+    for(const name of entries){
+      const match = name.match(/^nap_(\d{4}-\d{2}-\d{2})\.csv$/i);
+      if(!match) continue;
+
+      const ymd = match[1];
+      const text = await zip.files[name].async("string");
+      const rows = parseCsv(text);
+      if(!rows) continue;
+
+      overwriteDayFromCsvRows(ymd, rows);
+      imported++;
+    }
+
+    renderYearSelect();
+    updateRecordTabLabel();
+    renderInput();
+    if(currentPane === "record") makeSnapshotAndRender();
+    if(currentPane === "calendar") renderCalendar();
+
+    updateTopHint(`データ復元完了（${imported}ファイル）`);
+    alert(`復元しました。対象ファイル数：${imported}`);
+  }
+
+  function deleteFiscalYear(startYear){
+    const range = fiscalYearRange(startYear);
+    const msg = `${startYear}年度（${range.start}〜${range.end}）のデータを削除しますか？`;
+    if(!confirm(msg)) return;
+
+    let current = ymdToDate(range.start);
+    const end = ymdToDate(range.end);
+    let deleted = 0;
+
+    while(current <= end){
+      const ymd = dateToYmd(current);
+      if(localStorage.getItem(storeKey(ymd)) !== null){
+        localStorage.removeItem(storeKey(ymd));
+        deleted++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    renderYearSelect();
+    renderInput();
+    if(currentPane === "record") makeSnapshotAndRender();
+    if(currentPane === "calendar") renderCalendar();
+
+    updateTopHint(`年度データ削除完了（${deleted}日分）`);
+    alert(`削除しました。対象日数：${deleted}`);
+  }
+
+  btnBackup.addEventListener("click", async ()=>{
+    const year = Number(yearSelect.value);
+    await backupFiscalYearZip(year);
+  });
+
+  btnRestore.addEventListener("click", ()=>{
+    restoreZipInput.value = "";
+    restoreZipInput.click();
+  });
+
+  restoreZipInput.addEventListener("change", async (e)=>{
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    await restoreFiscalYearZip(file);
+  });
+
+  btnDeleteYear.addEventListener("click", ()=>{
+    const year = Number(yearSelect.value);
+    deleteFiscalYear(year);
+  });
+
+  yearSelect.addEventListener("change", ()=>{
+    updateTopHint(`${yearSelect.value}年度を選択中`);
+  });
+
+  function updateTopHint(text){
+    topHint.textContent = text;
+  }
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", ()=>{
+      navigator.serviceWorker.register("./sw.js").catch(console.error);
+    });
+  }
+</script>
+</body>
+</html>
