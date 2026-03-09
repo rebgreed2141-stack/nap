@@ -1,3 +1,4 @@
+<!-- 初期アプリ、デモ用として制作 -->
 /* <REPO_NAME> Service Worker */
 
 const CACHE_NAME = "<REPO_NAME>-v1";
