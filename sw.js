@@ -1,4 +1,5 @@
-const CACHE_NAME = "nap-check-v4";
+const CACHE_NAME = "nap-check-v6";
+
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -7,9 +8,9 @@ const CORE_ASSETS = [
   "./child.json",
   "./manifest.json",
   "./sw.js",
+  "./jszip.min.js",
   "./icon-192.png",
-  "./icon-512.png",
-  "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+  "./icon-512.png"
 ];
 
 self.addEventListener("install", event => {
@@ -27,31 +28,68 @@ self.addEventListener("activate", event => {
           .filter(key => key !== CACHE_NAME)
           .map(key => caches.delete(key))
       )
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
+});
+
+self.addEventListener("message", event => {
+  if (event.data === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
 
+  const url = new URL(event.request.url);
+
+  if (url.origin !== location.origin) {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return new Response("", {
+          status: 503,
+          statusText: "Offline"
+        });
+      })
+    );
+    return;
+  }
+
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put("./index.html", copy));
+          return response;
+        })
+        .catch(() => caches.match("./index.html"))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then(cached => {
-      if (cached) return cached;
+      if (cached) {
+        return cached;
+      }
 
-      return fetch(event.request).then(response => {
-        const url = new URL(event.request.url);
+      return fetch(event.request)
+        .then(response => {
+          if (!response || response.status !== 200) {
+            return response;
+          }
 
-        if (
-          url.origin === self.location.origin ||
-          url.href === "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
-        ) {
           const copy = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-        }
-
-        return response;
-      });
+          return response;
+        })
+        .catch(() => {
+          return new Response("", {
+            status: 503,
+            statusText: "Offline"
+          });
+        });
     })
   );
 });
