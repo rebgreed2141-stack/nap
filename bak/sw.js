@@ -1,9 +1,7 @@
-const CACHE_NAME = "nap-check-v4";
+const CACHE_NAME = "nap-check-v3";
 const CORE_ASSETS = [
   "./",
   "./index.html",
-  "./styles.css",
-  "./app.js",
   "./child.json",
   "./manifest.json",
   "./sw.js",
