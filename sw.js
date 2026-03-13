@@ -1,4 +1,4 @@
-const CACHE_NAME = "nap-check-v2";
+const CACHE_NAME = "nap-check-v3";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -6,7 +6,8 @@ const CORE_ASSETS = [
   "./manifest.json",
   "./sw.js",
   "./icon-192.png",
-  "./icon-512.png"
+  "./icon-512.png",
+  "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
 ];
 
 self.addEventListener("install", event => {
@@ -30,38 +31,25 @@ self.addEventListener("activate", event => {
 });
 
 self.addEventListener("fetch", event => {
-  const url = new URL(event.request.url);
-
   if (event.request.method !== "GET") return;
 
-  if (url.origin === location.origin) {
-    event.respondWith(
-      caches.match(event.request).then(cached => {
-        return (
-          cached ||
-          fetch(event.request).then(response => {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-            return response;
-          })
-        );
-      })
-    );
-    return;
-  }
+  event.respondWith(
+    caches.match(event.request).then(cached => {
+      if (cached) return cached;
 
-  if (url.href.includes("cdnjs.cloudflare.com/ajax/libs/jszip/")) {
-    event.respondWith(
-      caches.match(event.request).then(cached => {
-        return (
-          cached ||
-          fetch(event.request).then(response => {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-            return response;
-          })
-        );
-      })
-    );
-  }
+      return fetch(event.request).then(response => {
+        const url = new URL(event.request.url);
+
+        if (
+          url.origin === self.location.origin ||
+          url.href === "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+        ) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+        }
+
+        return response;
+      });
+    })
+  );
 });
