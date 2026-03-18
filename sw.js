@@ -1,4 +1,4 @@
-const CACHE_NAME = "nap-check-v6";
+const CACHE_NAME = "nap-check-v7";
 
 const CORE_ASSETS = [
   "./",
@@ -13,83 +13,92 @@ const CORE_ASSETS = [
   "./icon-512.png"
 ];
 
-self.addEventListener("install", event => {
+self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(CORE_ASSETS))
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.addAll(CORE_ASSETS);
+      await self.skipWaiting();
+    })()
   );
-  self.skipWaiting();
 });
 
-self.addEventListener("activate", event => {
+self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
         keys
-          .filter(key => key !== CACHE_NAME)
-          .map(key => caches.delete(key))
-      )
-    ).then(() => self.clients.claim())
+          .filter((key) => key !== CACHE_NAME)
+          .map((key) => caches.delete(key))
+      );
+      await self.clients.claim();
+    })()
   );
 });
 
-self.addEventListener("message", event => {
+self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") {
     self.skipWaiting();
   }
 });
 
-self.addEventListener("fetch", event => {
-  if (event.request.method !== "GET") return;
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
 
-  const url = new URL(event.request.url);
+  if (req.method !== "GET") return;
 
-  if (url.origin !== location.origin) {
+  const url = new URL(req.url);
+  const isSameOrigin = url.origin === self.location.origin;
+
+  if (req.mode === "navigate") {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        return new Response("", {
-          status: 503,
-          statusText: "Offline"
-        });
-      })
-    );
-    return;
-  }
-
-  if (event.request.mode === "navigate") {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put("./index.html", copy));
+      (async () => {
+        try {
+          const response = await fetch(req);
+          if (response && response.status === 200) {
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put("./index.html", response.clone());
+          }
           return response;
-        })
-        .catch(() => caches.match("./index.html"))
+        } catch (error) {
+          const cachedPage = await caches.match("./index.html");
+          if (cachedPage) return cachedPage;
+          throw error;
+        }
+      })()
     );
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) {
-        return cached;
-      }
+  if (isSameOrigin) {
+    event.respondWith(
+      (async () => {
+        const cached = await caches.match(req);
+        if (cached) return cached;
 
-      return fetch(event.request)
-        .then(response => {
-          if (!response || response.status !== 200) {
-            return response;
+        try {
+          const response = await fetch(req);
+
+          if (response && response.status === 200) {
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put(req, response.clone());
           }
 
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
           return response;
-        })
-        .catch(() => {
-          return new Response("", {
-            status: 503,
-            statusText: "Offline"
-          });
-        });
-    })
-  );
+        } catch (error) {
+          const fallback = await caches.match(url.pathname);
+          if (fallback) return fallback;
+
+          const dotFallback = await caches.match(`.${url.pathname}`);
+          if (dotFallback) return dotFallback;
+
+          throw error;
+        }
+      })()
+    );
+    return;
+  }
+
+  event.respondWith(fetch(req));
 });
