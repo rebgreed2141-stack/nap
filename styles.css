@@ -427,3 +427,30 @@
         gap:6px;
       }
     }
+/* ▼追加 */
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:12px;
+  border-bottom:1px solid var(--line);
+}
+
+.tabs{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.rightArea{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.version{
+  font-size:12px;
+  font-weight:900;
+  color:var(--muted);
+}
+/* ▲追加 */

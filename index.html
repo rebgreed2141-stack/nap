@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+
 <header>
   <div class="title">午睡チェック（ネット不要）</div>
   <div class="sub">
@@ -21,13 +22,22 @@
 
 <div class="wrap">
   <div class="card">
+
+    <!-- ▼ここ修正 -->
     <div class="topbar">
-      <button class="tabBtn active" id="tabInput">入力モード</button>
-      <button class="tabBtn" id="tabRecord">3月1日の記録</button>
-      <button class="tabBtn" id="tabCalendar">カレンダー</button>
-      <button class="tabBtn" id="tabManage">管理</button>
-      <div class="hint" id="topHint">読み込み中...</div>
+      <div class="tabs">
+        <button class="tabBtn active" id="tabInput">入力モード</button>
+        <button class="tabBtn" id="tabRecord">3月1日の記録</button>
+        <button class="tabBtn" id="tabCalendar">カレンダー</button>
+        <button class="tabBtn" id="tabManage">管理</button>
+      </div>
+
+      <div class="rightArea">
+        <div class="hint" id="topHint">読み込み中...</div>
+        <div class="version">Ver1.0.0</div>
+      </div>
     </div>
+    <!-- ▲ここ修正 -->
 
     <div class="pane active" id="paneInput">
       <div class="hours" id="hourRadios">
@@ -82,15 +92,12 @@
         </div>
         <div class="calendarGrid" id="calendarGrid"></div>
       </div>
-      <div class="foot">
-        ■日付を押すと、その日付の入力モードを開きます。<br>
-        ■「●＋人数」は、その日に記録がある園児数です。
-      </div>
     </div>
 
     <div class="pane" id="paneManage">
       <div class="status" id="manageStatus"></div>
       <div class="manageWrap">
+
         <div class="manageCard">
           <div class="manageTitle">年度</div>
           <div class="manageRow">
@@ -109,7 +116,7 @@
           <div class="manageTitle">年度のデータ復元</div>
           <div class="manageRow">
             <button class="btn secondary" id="btnRestore">年度のデータ復元</button>
-            <input type="file" id="restoreZipInput" accept=".zip,application/zip" style="display:none" />
+            <input type="file" id="restoreZipInput" accept=".zip" style="display:none" />
           </div>
         </div>
 
@@ -119,13 +126,16 @@
             <button class="btn danger" id="btnDeleteYear">年度のデータ削除</button>
           </div>
         </div>
+
       </div>
     </div>
+
   </div>
 </div>
 
 <script src="./jszip.min.js"></script>
 <script src="app.js" defer></script>
+
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -133,5 +143,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
+
 </body>
 </html>
