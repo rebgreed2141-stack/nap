@@ -1,9 +1,25 @@
-const STEP_MIN = 5;
-const DAY_TIMES = buildAllTimes();
-const RANGE_DEFS = [
-  { id: "am", label: "9:00〜11:55", startHour: 9, endHour: 11 },
-  { id: "pm", label: "12:00〜15:55", startHour: 12, endHour: 15 }
+const CLASS_DEFS = [
+  { id: "momiji", label: "もみじ" },
+  { id: "donguri", label: "どんぐり" }
 ];
+
+const TIME_CONFIG = {
+  momiji: {
+    showRangeRadios: true,
+    ranges: [
+      { id: "am", label: "9:00〜11:55", start: "09:00", end: "11:55", step: 5 },
+      { id: "pm", label: "12:00〜15:55", start: "12:00", end: "15:55", step: 5 }
+    ]
+  },
+  donguri: {
+    showRangeRadios: false,
+    ranges: [
+      { id: "only", label: "12:00〜15:50", start: "12:00", end: "15:50", step: 10 }
+    ]
+  }
+};
+
+const DAY_TIMES = buildAllTimes();
 
 const tabRecord = document.getElementById("tabRecord");
 const tabCalendar = document.getElementById("tabCalendar");
@@ -13,6 +29,8 @@ const paneRecord = document.getElementById("paneRecord");
 const paneCalendar = document.getElementById("paneCalendar");
 const paneManage = document.getElementById("paneManage");
 
+const classRadios = document.getElementById("classRadios");
+const rangeBar = document.getElementById("rangeBar");
 const rangeRadios = document.getElementById("rangeRadios");
 const viewStatus = document.getElementById("viewStatus");
 const viewBody = document.getElementById("viewBody");
@@ -32,8 +50,9 @@ const restoreZipInput = document.getElementById("restoreZipInput");
 
 let currentPane = "record";
 let selectedYMD = ymdToday();
-let selectedRangeId = defaultRangeIdForNow();
-let currentChildren = [];
+let selectedClassId = "momiji";
+let selectedRangeId = defaultRangeIdForClass("momiji");
+let allChildren = [];
 const invalidSelections = new Map();
 
 const selectedDateObj = ymdToDate(selectedYMD);
@@ -44,7 +63,8 @@ init();
 
 async function init(){
   try{
-    currentChildren = await loadChildrenJson();
+    allChildren = await loadChildrenJson();
+    renderClassRadios();
     renderRangeRadios();
     updateRecordTabLabel();
     renderYearSelect();
@@ -67,11 +87,33 @@ async function loadChildrenJson(){
 function buildAllTimes(){
   const out = [];
   for(let hour = 9; hour <= 15; hour++){
-    for(let min = 0; min < 60; min += STEP_MIN){
+    for(let min = 0; min < 60; min += 5){
       out.push(`${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")}`);
     }
   }
   return out;
+}
+
+function buildTimes(start, end, step){
+  const out = [];
+  let current = hhmmToMin(start);
+  const last = hhmmToMin(end);
+  while(current <= last){
+    out.push(minToHhmm(current));
+    current += step;
+  }
+  return out;
+}
+
+function hhmmToMin(hhmm){
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function minToHhmm(min){
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
 function ymdToday(){
@@ -95,36 +137,52 @@ function ymdToLabelNoYear(ymd){
   return `${d.getMonth() + 1}月${d.getDate()}日の記録`;
 }
 
-function hhmmToMin(hhmm){
-  const [h, m] = hhmm.split(":").map(Number);
-  return h * 60 + m;
-}
+function defaultRangeIdForClass(classId){
+  const config = TIME_CONFIG[classId];
+  if(!config || !config.ranges || config.ranges.length === 0) return "";
+  if(!config.showRangeRadios) return config.ranges[0].id;
 
-function defaultRangeIdForNow(){
   const now = new Date();
   const minutes = now.getHours() * 60 + now.getMinutes();
   return minutes >= 12 * 60 ? "pm" : "am";
 }
 
-function getRangeDef(rangeId){
-  return RANGE_DEFS.find(r => r.id === rangeId) || RANGE_DEFS[0];
+function getTimeConfig(classId){
+  return TIME_CONFIG[classId] || TIME_CONFIG.momiji;
 }
 
-function getRangeTimes(rangeId){
-  const range = getRangeDef(rangeId);
-  return DAY_TIMES.filter(time => {
-    const hour = Number(time.split(":")[0]);
-    return hour >= range.startHour && hour <= range.endHour;
-  });
+function getCurrentRanges(){
+  return getTimeConfig(selectedClassId).ranges;
 }
 
-function getRangeHours(rangeId){
-  const range = getRangeDef(rangeId);
+function getCurrentRangeDef(){
+  const ranges = getCurrentRanges();
+  return ranges.find(r => r.id === selectedRangeId) || ranges[0];
+}
+
+function getDisplayTimes(){
+  const range = getCurrentRangeDef();
+  return buildTimes(range.start, range.end, range.step);
+}
+
+function getDisplayHours(){
+  const times = getDisplayTimes();
   const hours = [];
-  for(let h = range.startHour; h <= range.endHour; h++){
-    hours.push(h);
+  for(const time of times){
+    const hour = Number(time.split(":")[0]);
+    if(!hours.includes(hour)) hours.push(hour);
   }
   return hours;
+}
+
+function getTimesForHour(hour){
+  return getDisplayTimes().filter(time => Number(time.split(":")[0]) === hour);
+}
+
+function getChildrenForSelectedClass(){
+  return allChildren
+    .filter(child => child.classId === selectedClassId)
+    .sort((a, b) => Number(a.no || 0) - Number(b.no || 0));
 }
 
 function storeKey(ymd){
@@ -140,15 +198,18 @@ function normalizeDayData(source){
   const srcChildren = source && source.children && typeof source.children === "object" ? source.children : {};
 
   for(const [childId, childObj] of Object.entries(srcChildren)){
+    const className = childObj && typeof childObj.className === "string" ? childObj.className : "";
     const name = childObj && typeof childObj.name === "string" ? childObj.name : "";
     const recordsSrc = childObj && childObj.records && typeof childObj.records === "object" ? childObj.records : {};
     const records = {};
+
     for(const [time, value] of Object.entries(recordsSrc)){
       if(DAY_TIMES.includes(time) && (value === "u" || value === "d")){
         records[time] = value;
       }
     }
-    out.children[childId] = { name, records };
+
+    out.children[childId] = { className, name, records };
   }
 
   return out;
@@ -172,13 +233,16 @@ function removeDayData(ymd){
   localStorage.removeItem(storeKey(ymd));
 }
 
-function ensureChildExistsInDay(dayData, childId, childName){
-  if(!dayData.children[childId]){
-    dayData.children[childId] = { name: childName || "", records:{} };
+function ensureChildExistsInDay(dayData, child){
+  if(!dayData.children[child.id]){
+    dayData.children[child.id] = {
+      className: child.className || "",
+      name: child.name || "",
+      records:{}
+    };
   }
-  if(childName){
-    dayData.children[childId].name = childName;
-  }
+  dayData.children[child.id].className = child.className || "";
+  dayData.children[child.id].name = child.name || "";
 }
 
 function getStoredValue(ymd, childId, time){
@@ -188,14 +252,14 @@ function getStoredValue(ymd, childId, time){
     : "";
 }
 
-function setStoredValue(ymd, childId, childName, time, value){
+function setStoredValue(ymd, child, time, value){
   const dayData = loadDayData(ymd);
-  ensureChildExistsInDay(dayData, childId, childName);
+  ensureChildExistsInDay(dayData, child);
 
   if(value === "u" || value === "d"){
-    dayData.children[childId].records[time] = value;
+    dayData.children[child.id].records[time] = value;
   }else{
-    delete dayData.children[childId].records[time];
+    delete dayData.children[child.id].records[time];
   }
 
   saveDayData(ymd, dayData);
@@ -204,6 +268,14 @@ function setStoredValue(ymd, childId, childName, time, value){
 function childCountWithRecord(ymd){
   const dayData = loadDayData(ymd);
   return Object.values(dayData.children).filter(obj => Object.keys(obj.records || {}).length > 0).length;
+}
+
+function childCountWithRecordByClass(ymd, className){
+  const dayData = loadDayData(ymd);
+  return Object.values(dayData.children).filter(obj => {
+    const hasRecord = Object.keys(obj.records || {}).length > 0;
+    return hasRecord && obj.className === className;
+  }).length;
 }
 
 function firstSleepTime(ymd, childId){
@@ -215,7 +287,7 @@ function firstSleepTime(ymd, childId){
 }
 
 function getInvalidKey(childId, time){
-  return `${selectedYMD}__${childId}__${time}`;
+  return `${selectedYMD}__${selectedClassId}__${childId}__${time}`;
 }
 
 function getEffectiveState(childId, time){
@@ -250,11 +322,11 @@ function handleCheckboxChange(child, time, type, checked){
   }else{
     invalidSelections.delete(invalidKey);
     if(supine){
-      setStoredValue(selectedYMD, child.id, child.name, time, "u");
+      setStoredValue(selectedYMD, child, time, "u");
     }else if(prone){
-      setStoredValue(selectedYMD, child.id, child.name, time, "d");
+      setStoredValue(selectedYMD, child, time, "d");
     }else{
-      setStoredValue(selectedYMD, child.id, child.name, time, "");
+      setStoredValue(selectedYMD, child, time, "");
     }
   }
 
@@ -291,10 +363,45 @@ tabRecord.addEventListener("click", ()=> setPane("record"));
 tabCalendar.addEventListener("click", ()=> setPane("calendar"));
 tabManage.addEventListener("click", ()=> setPane("manage"));
 
+function renderClassRadios(){
+  classRadios.innerHTML = "";
+
+  for(const cls of CLASS_DEFS){
+    const label = document.createElement("label");
+    label.className = "classRadio";
+
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "recordClass";
+    input.value = cls.id;
+    input.checked = cls.id === selectedClassId;
+    input.addEventListener("change", ()=>{
+      selectedClassId = cls.id;
+      selectedRangeId = defaultRangeIdForClass(selectedClassId);
+      renderRangeRadios();
+      renderRecord();
+    });
+
+    const span = document.createElement("span");
+    span.textContent = cls.label;
+
+    label.appendChild(input);
+    label.appendChild(span);
+    classRadios.appendChild(label);
+  }
+}
+
 function renderRangeRadios(){
+  const config = getTimeConfig(selectedClassId);
   rangeRadios.innerHTML = "";
 
-  for(const range of RANGE_DEFS){
+  if(!config.showRangeRadios){
+    rangeBar.style.display = "none";
+    return;
+  }
+
+  rangeBar.style.display = "";
+  for(const range of config.ranges){
     const label = document.createElement("label");
     label.className = "rangeRadio";
 
@@ -318,16 +425,20 @@ function renderRangeRadios(){
 }
 
 async function renderRecord(){
-  currentChildren = await loadChildrenJson();
+  allChildren = await loadChildrenJson();
+  renderClassRadios();
   renderRangeRadios();
 
-  const selectedRange = getRangeDef(selectedRangeId);
-  const invalidCount = Array.from(invalidSelections.keys()).filter(key => key.startsWith(`${selectedYMD}__`)).length;
-  viewStatus.innerHTML = `日付：<b>${selectedYMD}</b> ／ 表示範囲：<b>${selectedRange.label}</b> ／ 園児数：<b>${currentChildren.length}</b> ／ 未保存の赤表示：<b>${invalidCount}</b>`;
+  const children = getChildrenForSelectedClass();
+  const range = getCurrentRangeDef();
+  const classLabel = CLASS_DEFS.find(c => c.id === selectedClassId)?.label || "";
+  const invalidCount = Array.from(invalidSelections.keys()).filter(key => key.startsWith(`${selectedYMD}__${selectedClassId}__`)).length;
+
+  viewStatus.innerHTML = `日付：<b>${selectedYMD}</b> ／ クラス：<b>${classLabel}</b> ／ 表示範囲：<b>${range.label}</b> ／ 園児数：<b>${children.length}</b> ／ 未保存の赤表示：<b>${invalidCount}</b>`;
 
   viewBody.innerHTML = "";
 
-  for(const child of currentChildren){
+  for(const child of children){
     const row = document.createElement("div");
     row.className = "childRow";
 
@@ -347,7 +458,9 @@ async function renderRecord(){
     const blocks = document.createElement("div");
     blocks.className = "blocks";
 
-    for(const hour of getRangeHours(selectedRangeId)){
+    for(const hour of getDisplayHours()){
+      const hourTimes = getTimesForHour(hour);
+
       const block = document.createElement("div");
       block.className = "hourBlock";
 
@@ -357,7 +470,7 @@ async function renderRecord(){
       const headerRow = document.createElement("tr");
       const hourHead = document.createElement("th");
       hourHead.className = "hourHead";
-      hourHead.colSpan = 13;
+      hourHead.colSpan = hourTimes.length + 1;
       hourHead.textContent = `${hour}時`;
       headerRow.appendChild(hourHead);
       table.appendChild(headerRow);
@@ -368,10 +481,10 @@ async function renderRecord(){
       blankHead.textContent = "";
       minuteRow.appendChild(blankHead);
 
-      for(let min = 0; min < 60; min += STEP_MIN){
+      for(const time of hourTimes){
         const th = document.createElement("th");
         th.className = "minHead";
-        th.textContent = String(min);
+        th.textContent = String(Number(time.split(":")[1]));
         minuteRow.appendChild(th);
       }
       table.appendChild(minuteRow);
@@ -388,8 +501,7 @@ async function renderRecord(){
       proneHead.textContent = "うつ伏せ";
       proneRow.appendChild(proneHead);
 
-      for(let min = 0; min < 60; min += STEP_MIN){
-        const time = `${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+      for(const time of hourTimes){
         const state = getEffectiveState(child.id, time);
 
         const supineCell = document.createElement("td");
@@ -468,7 +580,7 @@ function renderCalendar(){
   const daysInMonth = lastDay.getDate();
   const prevLastDay = new Date(calendarYear, calendarMonth, 0).getDate();
 
-  for(let i=0;i<42;i++){
+  for(let i = 0; i < 42; i++){
     const cell = document.createElement("button");
     cell.type = "button";
     cell.className = "dayCell";
@@ -496,7 +608,9 @@ function renderCalendar(){
 
     const d = new Date(year, month, dayNum);
     const ymd = dateToYmd(d);
-    const count = childCountWithRecord(ymd);
+    const momijiCount = childCountWithRecordByClass(ymd, "もみじ");
+    const donguriCount = childCountWithRecordByClass(ymd, "どんぐり");
+    const totalCount = momijiCount + donguriCount;
     const isToday = ymd === ymdToday();
     const isSelected = ymd === selectedYMD;
 
@@ -513,7 +627,9 @@ function renderCalendar(){
 
     const mark = document.createElement("div");
     mark.className = "recordMark";
-    mark.textContent = count > 0 ? `●${count}` : "";
+    mark.innerHTML = totalCount > 0
+      ? `●${totalCount}<span class="markSub">（も${momijiCount}・ど${donguriCount}）</span>`
+      : "";
 
     top.appendChild(num);
     top.appendChild(mark);
@@ -568,7 +684,7 @@ function fiscalYearRange(startYear){
 
 function listExistingYMDs(){
   const out = [];
-  for(let i=0;i<localStorage.length;i++){
+  for(let i = 0; i < localStorage.length; i++){
     const key = localStorage.key(i);
     if(/^nap_\d{4}-\d{2}-\d{2}$/.test(key)){
       out.push(key.replace("nap_", ""));
@@ -632,7 +748,7 @@ function escapeCsv(value){
 }
 
 function csvHeader(){
-  return ["childId", "childName", ...DAY_TIMES];
+  return ["childId", "className", "childName", ...DAY_TIMES];
 }
 
 function buildCsvForDay(ymd){
@@ -646,6 +762,7 @@ function buildCsvForDay(ymd){
 
     const row = [
       childId,
+      childObj.className || "",
       childObj.name || "",
       ...DAY_TIMES.map(time => childObj.records[time] || "")
     ];
@@ -660,7 +777,7 @@ function parseCsvLine(line){
   let current = "";
   let inQuotes = false;
 
-  for(let i=0;i<line.length;i++){
+  for(let i = 0; i < line.length; i++){
     const ch = line[i];
     const next = line[i + 1];
 
@@ -682,19 +799,19 @@ function parseCsvLine(line){
 }
 
 function parseCsv(text){
-  const lines = text.replace(/\r/g, "").split("\n").filter(line => line !== "");
+  const lines = text.replace(/^\uFEFF/, "").replace(/\r/g, "").split("\n").filter(line => line !== "");
   if(lines.length === 0) return null;
 
   const expected = csvHeader();
   const header = parseCsvLine(lines[0]);
   if(header.length !== expected.length) return null;
 
-  for(let i=0;i<expected.length;i++){
-    if(header[i].replace(/^0/,"") !== expected[i].replace(/^0/,"")) return null;
+  for(let i = 0; i < expected.length; i++){
+    if(header[i] !== expected[i]) return null;
   }
 
   const rows = [];
-  for(let i=1;i<lines.length;i++){
+  for(let i = 1; i < lines.length; i++){
     const cols = parseCsvLine(lines[i]);
     while(cols.length < expected.length){
       cols.push("");
@@ -710,13 +827,14 @@ function overwriteDayFromCsvRows(ymd, rows){
 
   for(const row of rows){
     const childId = row[0];
-    const childName = row[1] || "";
+    const className = row[1] || "";
+    const childName = row[2] || "";
     if(!childId) continue;
 
-    dayData.children[childId] = { name: childName, records:{} };
+    dayData.children[childId] = { className, name: childName, records:{} };
 
-    for(let i=0;i<DAY_TIMES.length;i++){
-      const value = row[i + 2] || "";
+    for(let i = 0; i < DAY_TIMES.length; i++){
+      const value = row[i + 3] || "";
       if(value === "u" || value === "d"){
         dayData.children[childId].records[DAY_TIMES[i]] = value;
       }

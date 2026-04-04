@@ -107,19 +107,28 @@ header{
 }
 .pane{ display:none; }
 .pane.active{ display:block; }
-.rangeBar{
+
+.stickyBars{
   position:sticky;
   top:74px;
   z-index:25;
   background:#fff;
   border-bottom:1px solid var(--line);
+}
+.classBar,
+.rangeBar{
   padding:12px;
 }
+.classBar{
+  border-bottom:1px solid var(--line);
+}
+.classGroup,
 .rangeGroup{
   display:flex;
   gap:10px;
   flex-wrap:wrap;
 }
+.classRadio,
 .rangeRadio{
   display:inline-flex;
   align-items:center;
@@ -132,7 +141,11 @@ header{
   user-select:none;
   font-weight:900;
 }
-.rangeRadio input{ transform:scale(1.15); }
+.classRadio input,
+.rangeRadio input{
+  transform:scale(1.15);
+}
+
 .status{
   padding:10px 12px;
   border-bottom:1px solid var(--line);
@@ -244,6 +257,7 @@ header{
 .invalidCell{
   background:var(--dangerBg);
 }
+
 .calendarWrap{
   padding:12px;
 }
@@ -311,12 +325,18 @@ header{
   color:var(--primary);
   white-space:nowrap;
 }
+.markSub{
+  font-size:10px;
+  color:var(--muted);
+  margin-left:4px;
+}
 .dayBottom{
   margin-top:auto;
   font-size:11px;
   color:var(--muted);
   line-height:1.2;
 }
+
 .manageWrap{
   padding:12px;
   display:grid;
@@ -347,6 +367,7 @@ select, input[type="file"]{
   background:#fff;
   color:var(--text);
 }
+
 @media (max-width:720px){
   .childNameBox{
     width:140px;

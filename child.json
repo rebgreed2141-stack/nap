@@ -1,4 +1,47 @@
 [
-  { "id": "c0029", "name": "いとう たいせい" },
-  { "id": "c0030", "name": "おおつか あさひ" }
+  {
+    "id": "c0026",
+    "classId": "donguri",
+    "className": "どんぐり",
+    "no": 1,
+    "name": "みずぬま　せな",
+    "gender": "f",
+    "birthDate": "2024/4/2"
+  },
+  {
+    "id": "c0027",
+    "classId": "donguri",
+    "className": "どんぐり",
+    "no": 2,
+    "name": "さかい　あんり",
+    "gender": "f",
+    "birthDate": "2024/4/2"
+  },
+  {
+    "id": "c0028",
+    "classId": "donguri",
+    "className": "どんぐり",
+    "no": 3,
+    "name": "かとう　そら",
+    "gender": "m",
+    "birthDate": "2024/4/2"
+  },
+  {
+    "id": "c0029",
+    "classId": "momiji",
+    "className": "もみじ",
+    "no": 1,
+    "name": "いとう　たいせい",
+    "gender": "m",
+    "birthDate": "2025/4/2"
+  },
+  {
+    "id": "c0030",
+    "classId": "momiji",
+    "className": "もみじ",
+    "no": 2,
+    "name": "おおつか　あさひ",
+    "gender": "m",
+    "birthDate": "2025/4/2"
+  }
 ]
