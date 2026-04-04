@@ -554,6 +554,7 @@ function refreshStatuses(){
   renderCalendarStatus();
   renderManageStatus();
   renderYearSelect();
+  renderCalendar();
 }
 
 function renderCalendarStatus(){
@@ -627,9 +628,14 @@ function renderCalendar(){
 
     const mark = document.createElement("div");
     mark.className = "recordMark";
-    mark.innerHTML = totalCount > 0
-      ? `●${totalCount}<span class="markSub">（も${momijiCount}・ど${donguriCount}）</span>`
-      : "";
+    if(totalCount > 0){
+      mark.innerHTML = `
+        <div class="recordLine">もみじ${momijiCount}</div>
+        <div class="recordLine">どんぐり${donguriCount}</div>
+      `;
+    } else {
+      mark.innerHTML = "";
+    }
 
     top.appendChild(num);
     top.appendChild(mark);
@@ -905,7 +911,7 @@ async function restoreFiscalYearZip(file){
   renderYearSelect();
   renderManageStatus();
   renderRecord();
-  if(currentPane === "calendar") renderCalendar();
+  renderCalendar();
   alert(`復元しました。対象ファイル数：${imported}`);
 }
 
@@ -937,7 +943,7 @@ function deleteFiscalYear(startYear){
   renderYearSelect();
   renderManageStatus();
   renderRecord();
-  if(currentPane === "calendar") renderCalendar();
+  renderCalendar();
 
   alert(`削除しました。対象日数：${deleted}`);
 }
