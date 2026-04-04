@@ -21,13 +21,19 @@ const TIME_CONFIG = {
 
 const DAY_TIMES = buildAllTimes();
 
+const VERSION_INFO_URL = "./version.json";
+const INSTALLED_VERSION_KEY = "nap_installed_version";
+const APPLY_UPDATE_ON_RELOAD_KEY = "nap_apply_update_on_reload";
+
 const tabRecord = document.getElementById("tabRecord");
 const tabCalendar = document.getElementById("tabCalendar");
 const tabManage = document.getElementById("tabManage");
+const tabVersion = document.getElementById("tabVersion");
 
 const paneRecord = document.getElementById("paneRecord");
 const paneCalendar = document.getElementById("paneCalendar");
 const paneManage = document.getElementById("paneManage");
+const paneVersion = document.getElementById("paneVersion");
 
 const classRadios = document.getElementById("classRadios");
 const rangeBar = document.getElementById("rangeBar");
@@ -48,12 +54,22 @@ const btnRestore = document.getElementById("btnRestore");
 const btnDeleteYear = document.getElementById("btnDeleteYear");
 const restoreZipInput = document.getElementById("restoreZipInput");
 
+const topVersion = document.getElementById("topVersion");
+const versionStatus = document.getElementById("versionStatus");
+const currentVersionText = document.getElementById("currentVersionText");
+const latestVersionText = document.getElementById("latestVersionText");
+const btnUpdate = document.getElementById("btnUpdate");
+
 let currentPane = "record";
 let selectedYMD = ymdToday();
 let selectedClassId = "momiji";
 let selectedRangeId = defaultRangeIdForClass("momiji");
 let allChildren = [];
 const invalidSelections = new Map();
+
+let currentInstalledVersion = "";
+let latestAvailableVersion = "";
+let swRegistration = null;
 
 const selectedDateObj = ymdToDate(selectedYMD);
 let calendarYear = selectedDateObj.getFullYear();
@@ -71,6 +87,7 @@ async function init(){
     renderRecord();
     renderCalendar();
     renderManageStatus();
+    await setupVersionFeature();
   }catch(err){
     console.error(err);
     alert("child.json の読み込みに失敗しました。");
@@ -344,10 +361,12 @@ function setPane(name){
   tabRecord.classList.toggle("active", name === "record");
   tabCalendar.classList.toggle("active", name === "calendar");
   tabManage.classList.toggle("active", name === "manage");
+  tabVersion.classList.toggle("active", name === "version");
 
   paneRecord.classList.toggle("active", name === "record");
   paneCalendar.classList.toggle("active", name === "calendar");
   paneManage.classList.toggle("active", name === "manage");
+  paneVersion.classList.toggle("active", name === "version");
 
   if(name === "record"){
     renderRecord();
@@ -356,12 +375,15 @@ function setPane(name){
   }else if(name === "manage"){
     renderYearSelect();
     renderManageStatus();
+  }else if(name === "version"){
+    renderVersionStatus();
   }
 }
 
 tabRecord.addEventListener("click", ()=> setPane("record"));
 tabCalendar.addEventListener("click", ()=> setPane("calendar"));
 tabManage.addEventListener("click", ()=> setPane("manage"));
+tabVersion.addEventListener("click", ()=> setPane("version"));
 
 function renderClassRadios(){
   classRadios.innerHTML = "";
@@ -947,6 +969,127 @@ function deleteFiscalYear(startYear){
 
   alert(`削除しました。対象日数：${deleted}`);
 }
+
+
+function normalizeVersionText(version){
+  return version ? `Ver.${version}` : "確認中";
+}
+
+function compareVersions(a, b){
+  const aa = String(a || "").split(".").map(n => Number(n) || 0);
+  const bb = String(b || "").split(".").map(n => Number(n) || 0);
+  const len = Math.max(aa.length, bb.length);
+  for(let i = 0; i < len; i++){
+    const av = aa[i] || 0;
+    const bv = bb[i] || 0;
+    if(av > bv) return 1;
+    if(av < bv) return -1;
+  }
+  return 0;
+}
+
+function getStoredInstalledVersion(){
+  return localStorage.getItem(INSTALLED_VERSION_KEY) || "";
+}
+
+function setStoredInstalledVersion(version){
+  if(version){
+    localStorage.setItem(INSTALLED_VERSION_KEY, version);
+  }
+}
+
+function updateVersionTexts(){
+  currentVersionText.textContent = normalizeVersionText(currentInstalledVersion);
+  latestVersionText.textContent = latestAvailableVersion ? normalizeVersionText(latestAvailableVersion) : "確認できません";
+  topVersion.textContent = normalizeVersionText(currentInstalledVersion);
+
+  const hasUpdate = currentInstalledVersion && latestAvailableVersion && compareVersions(latestAvailableVersion, currentInstalledVersion) > 0;
+  btnUpdate.disabled = !hasUpdate;
+}
+
+function renderVersionStatus(){
+  if(!latestAvailableVersion){
+    versionStatus.innerHTML = "最新のバージョンを確認できません。";
+    return;
+  }
+
+  const hasUpdate = currentInstalledVersion && compareVersions(latestAvailableVersion, currentInstalledVersion) > 0;
+  if(hasUpdate){
+    versionStatus.innerHTML = `新しいバージョンがあります。現在：<b>${normalizeVersionText(currentInstalledVersion)}</b> ／ 最新：<b>${normalizeVersionText(latestAvailableVersion)}</b>`;
+  }else{
+    versionStatus.innerHTML = `現在のバージョンは最新です。<b>${normalizeVersionText(currentInstalledVersion)}</b>`;
+  }
+}
+
+async function fetchLatestVersionInfo(){
+  const res = await fetch(`${VERSION_INFO_URL}?t=${Date.now()}`, { cache:"no-store" });
+  if(!res.ok) throw new Error("version.json fetch failed");
+  return await res.json();
+}
+
+async function setupVersionFeature(){
+  currentInstalledVersion = getStoredInstalledVersion();
+  updateVersionTexts();
+
+  if("serviceWorker" in navigator){
+    swRegistration = await navigator.serviceWorker.register("./sw.js");
+
+    navigator.serviceWorker.addEventListener("controllerchange", ()=>{
+      if(sessionStorage.getItem(APPLY_UPDATE_ON_RELOAD_KEY) === "1") return;
+      sessionStorage.setItem(APPLY_UPDATE_ON_RELOAD_KEY, "1");
+      window.location.reload();
+    });
+  }
+
+  try{
+    const info = await fetchLatestVersionInfo();
+    latestAvailableVersion = String(info.version || "");
+
+    if(!currentInstalledVersion){
+      currentInstalledVersion = latestAvailableVersion;
+      setStoredInstalledVersion(currentInstalledVersion);
+    }
+
+    if(sessionStorage.getItem(APPLY_UPDATE_ON_RELOAD_KEY) === "1" && latestAvailableVersion){
+      currentInstalledVersion = latestAvailableVersion;
+      setStoredInstalledVersion(currentInstalledVersion);
+      sessionStorage.removeItem(APPLY_UPDATE_ON_RELOAD_KEY);
+    }
+
+    updateVersionTexts();
+    renderVersionStatus();
+  }catch(err){
+    console.error(err);
+    updateVersionTexts();
+    renderVersionStatus();
+  }
+}
+
+btnUpdate.addEventListener("click", async ()=>{
+  if(btnUpdate.disabled) return;
+
+  btnUpdate.disabled = true;
+  versionStatus.innerHTML = `更新しています。<b>${normalizeVersionText(latestAvailableVersion)}</b> を読み込みます。`;
+  sessionStorage.setItem(APPLY_UPDATE_ON_RELOAD_KEY, "1");
+
+  try{
+    if(swRegistration){
+      await swRegistration.update();
+      if(swRegistration.waiting){
+        swRegistration.waiting.postMessage("SKIP_WAITING");
+      }
+    }
+
+    if("caches" in window){
+      const keys = await caches.keys();
+      await Promise.all(keys.filter(key => key.startsWith("nap-check-cache")).map(key => caches.delete(key)));
+    }
+  }catch(err){
+    console.error(err);
+  }
+
+  window.location.reload();
+});
 
 btnBackup.addEventListener("click", ()=>{
   const year = Number(yearSelect.value) || fiscalYearFromYmd(ymdToday());

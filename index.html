@@ -27,9 +27,10 @@
         <button class="tabBtn active" id="tabRecord">3月1日の記録</button>
         <button class="tabBtn" id="tabCalendar">カレンダー</button>
         <button class="tabBtn" id="tabManage">管理</button>
+        <button class="tabBtn" id="tabVersion">バージョン</button>
       </div>
       <div class="rightArea">
-        <div class="version">Ver.2.0.0</div>
+        <div class="version" id="topVersion">Ver.確認中</div>
       </div>
     </div>
 
@@ -63,6 +64,32 @@
           <button class="btn secondary" id="btnNextMonth">↓</button>
         </div>
         <div class="calendarGrid" id="calendarGrid"></div>
+      </div>
+    </div>
+
+
+
+    <div class="pane" id="paneVersion">
+      <div class="status" id="versionStatus">バージョン情報を確認しています。</div>
+      <div class="versionWrap">
+        <div class="versionCard">
+          <div class="versionTitle">現在のバージョン</div>
+          <div class="versionValue" id="currentVersionText">確認中</div>
+        </div>
+
+        <div class="versionCard">
+          <div class="versionTitle">最新のバージョン</div>
+          <div class="versionValue" id="latestVersionText">確認中</div>
+        </div>
+
+        <div class="versionCard">
+          <div class="versionRow">
+            <button class="btn" id="btnUpdate" disabled>更新する</button>
+          </div>
+          <div class="versionNote">
+            新しいバージョンがある場合だけボタンが押せます。
+          </div>
+        </div>
       </div>
     </div>
 
@@ -104,13 +131,7 @@
 
 <script src="./jszip.min.js"></script>
 <script src="app.js" defer></script>
-<script>
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js");
-  });
-}
-</script>
+
 
 </body>
 </html>

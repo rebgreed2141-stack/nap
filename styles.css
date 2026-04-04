@@ -387,3 +387,40 @@ select, input[type="file"]{
     gap:6px;
   }
 }
+
+.versionWrap{
+  padding:12px;
+  display:grid;
+  gap:12px;
+}
+.versionCard{
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#fff;
+  padding:16px;
+}
+.versionTitle{
+  font-size:13px;
+  color:var(--muted);
+  font-weight:900;
+  margin-bottom:8px;
+}
+.versionValue{
+  font-size:24px;
+  font-weight:900;
+}
+.versionRow{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.versionNote{
+  margin-top:10px;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.7;
+}
+.btn[disabled]{
+  cursor:default;
+  opacity:.45;
+}

@@ -1,4 +1,4 @@
-const CACHE_NAME = "nap-check-v7";
+const CACHE_NAME = "nap-check-cache";
 
 const CORE_ASSETS = [
   "./",
@@ -18,7 +18,6 @@ self.addEventListener("install", (event) => {
     (async () => {
       const cache = await caches.open(CACHE_NAME);
       await cache.addAll(CORE_ASSETS);
-      await self.skipWaiting();
     })()
   );
 });
@@ -51,54 +50,50 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   const isSameOrigin = url.origin === self.location.origin;
 
+  if (!isSameOrigin) {
+    event.respondWith(fetch(req));
+    return;
+  }
+
+  if (url.pathname.endsWith("/version.json") || url.pathname.endsWith("version.json")) {
+    event.respondWith(fetch(req, { cache: "no-store" }));
+    return;
+  }
+
   if (req.mode === "navigate") {
     event.respondWith(
       (async () => {
-        try {
-          const response = await fetch(req);
-          if (response && response.status === 200) {
-            const cache = await caches.open(CACHE_NAME);
-            await cache.put("./index.html", response.clone());
-          }
-          return response;
-        } catch (error) {
-          const cachedPage = await caches.match("./index.html");
-          if (cachedPage) return cachedPage;
-          throw error;
-        }
-      })()
-    );
-    return;
-  }
-
-  if (isSameOrigin) {
-    event.respondWith(
-      (async () => {
-        const cached = await caches.match(req);
+        const cached = await caches.match("./index.html");
         if (cached) return cached;
 
-        try {
-          const response = await fetch(req);
-
-          if (response && response.status === 200) {
-            const cache = await caches.open(CACHE_NAME);
-            await cache.put(req, response.clone());
-          }
-
-          return response;
-        } catch (error) {
-          const fallback = await caches.match(url.pathname);
-          if (fallback) return fallback;
-
-          const dotFallback = await caches.match(`.${url.pathname}`);
-          if (dotFallback) return dotFallback;
-
-          throw error;
+        const response = await fetch(req);
+        if (response && response.status === 200) {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put("./index.html", response.clone());
         }
+        return response;
       })()
     );
     return;
   }
 
-  event.respondWith(fetch(req));
+  event.respondWith(
+    (async () => {
+      const cached = await caches.match(req);
+      if (cached) return cached;
+
+      try {
+        const response = await fetch(req);
+        if (response && response.status === 200) {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put(req, response.clone());
+        }
+        return response;
+      } catch (error) {
+        const fallback = await caches.match(`.${url.pathname}`);
+        if (fallback) return fallback;
+        throw error;
+      }
+    })()
+  );
 });
