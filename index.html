@@ -14,7 +14,7 @@
 <header>
   <div class="title">午睡チェック（ネット不要）</div>
   <div class="sub">
-    <span>入力モード・記録・カレンダー・管理</span>
+    <span>記録・カレンダー・管理</span>
     <span>保存：自動（localStorage）</span>
     <span>年度のバックアップ／年度のデータ復元／年度のデータ削除</span>
   </div>
@@ -22,64 +22,30 @@
 
 <div class="wrap">
   <div class="card">
-
-    <!-- ▼ここ修正 -->
     <div class="topbar">
       <div class="tabs">
-        <button class="tabBtn active" id="tabInput">入力モード</button>
-        <button class="tabBtn" id="tabRecord">3月1日の記録</button>
+        <button class="tabBtn active" id="tabRecord">3月1日の記録</button>
         <button class="tabBtn" id="tabCalendar">カレンダー</button>
         <button class="tabBtn" id="tabManage">管理</button>
       </div>
-
       <div class="rightArea">
-        <div class="hint" id="topHint">読み込み中...</div>
-        <div class="version">Ver1.0.0</div>
-      </div>
-    </div>
-    <!-- ▲ここ修正 -->
-
-    <div class="pane active" id="paneInput">
-      <div class="hours" id="hourRadios">
-        <div class="label">時間（1時間単位）</div>
-      </div>
-
-      <div class="toolbar">
-        <label>時刻（5分）
-          <select id="timeSelect"></select>
-        </label>
-        <div class="hint">未選択あり / クリアあり</div>
-      </div>
-
-      <div class="status" id="inputStatus"></div>
-
-      <table>
-        <thead>
-          <tr>
-            <th style="width:30%">園児</th>
-            <th>記録</th>
-          </tr>
-        </thead>
-        <tbody id="inputRows"></tbody>
-      </table>
-
-      <div class="foot">
-        ■入力モードは常に child.json を使用します。<br>
-        ■記録表示は、その日付に保存されている園児名を使用します。<br>
-        ■「最初に寝た時間」＝その園児で、その日に最初に記録が入った時刻です。
+        <div class="version">Ver.2.0.0</div>
       </div>
     </div>
 
-    <div class="pane" id="paneRecord">
+    <div class="pane active" id="paneRecord">
+      <div class="rangeBar">
+        <div class="rangeGroup" id="rangeRadios"></div>
+      </div>
       <div class="status" id="viewStatus"></div>
       <div class="viewWrap">
-        <p class="viewNote">
-          ■記録が1つでもある園児だけ表示します。<br>
-          ■時間ブロックは記録がある時間だけ表示します。
-        </p>
         <div id="viewBody"></div>
       </div>
-      <div class="foot">■チェック記号：✓</div>
+      <div class="foot">
+        ■園児は child.json の順で表示します。<br>
+        ■両方にチェックが入った時刻は赤表示になり、その状態は保存しません。<br>
+        ■「最初に寝た時間」＝その園児で、その日に最初に記録が入った時刻です。
+      </div>
     </div>
 
     <div class="pane" id="paneCalendar">
@@ -97,7 +63,6 @@
     <div class="pane" id="paneManage">
       <div class="status" id="manageStatus"></div>
       <div class="manageWrap">
-
         <div class="manageCard">
           <div class="manageTitle">年度</div>
           <div class="manageRow">
@@ -126,16 +91,13 @@
             <button class="btn danger" id="btnDeleteYear">年度のデータ削除</button>
           </div>
         </div>
-
       </div>
     </div>
-
   </div>
 </div>
 
 <script src="./jszip.min.js"></script>
 <script src="app.js" defer></script>
-
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
