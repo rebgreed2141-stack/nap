@@ -23,7 +23,6 @@ const DAY_TIMES = buildAllTimes();
 
 const VERSION_INFO_URL = "./version.json";
 const INSTALLED_VERSION_KEY = "nap_installed_version";
-const APPLY_UPDATE_ON_RELOAD_KEY = "nap_apply_update_on_reload";
 
 const tabRecord = document.getElementById("tabRecord");
 const tabCalendar = document.getElementById("tabCalendar");
@@ -377,6 +376,7 @@ function setPane(name){
     renderManageStatus();
   }else if(name === "version"){
     renderVersionStatus();
+    refreshLatestVersionInfo();
   }
 }
 
@@ -1029,66 +1029,133 @@ async function fetchLatestVersionInfo(){
 
 async function setupVersionFeature(){
   currentInstalledVersion = getStoredInstalledVersion();
-  updateVersionTexts();
 
   if("serviceWorker" in navigator){
-    swRegistration = await navigator.serviceWorker.register("./sw.js");
-
-    navigator.serviceWorker.addEventListener("controllerchange", ()=>{
-      if(sessionStorage.getItem(APPLY_UPDATE_ON_RELOAD_KEY) === "1") return;
-      sessionStorage.setItem(APPLY_UPDATE_ON_RELOAD_KEY, "1");
-      window.location.reload();
-    });
+    swRegistration = await navigator.serviceWorker.getRegistration("./");
+    if(!swRegistration){
+      swRegistration = await navigator.serviceWorker.register("./sw.js");
+    }
   }
 
+  updateVersionTexts();
+  renderVersionStatus();
+}
+
+async function refreshLatestVersionInfo(){
   try{
     const info = await fetchLatestVersionInfo();
     latestAvailableVersion = String(info.version || "");
-
-    if(!currentInstalledVersion){
+    if(!currentInstalledVersion && latestAvailableVersion){
       currentInstalledVersion = latestAvailableVersion;
       setStoredInstalledVersion(currentInstalledVersion);
     }
-
-    if(sessionStorage.getItem(APPLY_UPDATE_ON_RELOAD_KEY) === "1" && latestAvailableVersion){
-      currentInstalledVersion = latestAvailableVersion;
-      setStoredInstalledVersion(currentInstalledVersion);
-      sessionStorage.removeItem(APPLY_UPDATE_ON_RELOAD_KEY);
-    }
-
     updateVersionTexts();
     renderVersionStatus();
+    return latestAvailableVersion;
   }catch(err){
     console.error(err);
+    latestAvailableVersion = "";
     updateVersionTexts();
     renderVersionStatus();
+    return "";
   }
 }
 
-btnUpdate.addEventListener("click", async ()=>{
-  if(btnUpdate.disabled) return;
+function waitForInstalledWorker(registration){
+  return new Promise((resolve) => {
+    if(registration.waiting){
+      resolve(registration.waiting);
+      return;
+    }
 
+    const installing = registration.installing;
+    if(!installing){
+      resolve(null);
+      return;
+    }
+
+    const onStateChange = () => {
+      if(installing.state === "installed"){
+        installing.removeEventListener("statechange", onStateChange);
+        resolve(registration.waiting || installing);
+      }else if(installing.state === "redundant"){
+        installing.removeEventListener("statechange", onStateChange);
+        resolve(null);
+      }
+    };
+
+    installing.addEventListener("statechange", onStateChange);
+  });
+}
+
+btnUpdate.addEventListener("click", async ()=>{
   btnUpdate.disabled = true;
-  versionStatus.innerHTML = `更新しています。<b>${normalizeVersionText(latestAvailableVersion)}</b> を読み込みます。`;
-  sessionStorage.setItem(APPLY_UPDATE_ON_RELOAD_KEY, "1");
 
   try{
-    if(swRegistration){
-      await swRegistration.update();
-      if(swRegistration.waiting){
-        swRegistration.waiting.postMessage("SKIP_WAITING");
+    await refreshLatestVersionInfo();
+
+    const hasUpdate = currentInstalledVersion && latestAvailableVersion && compareVersions(latestAvailableVersion, currentInstalledVersion) > 0;
+    if(!hasUpdate){
+      updateVersionTexts();
+      renderVersionStatus();
+      return;
+    }
+
+    versionStatus.innerHTML = `更新しています。<b>${normalizeVersionText(latestAvailableVersion)}</b> を読み込みます。`;
+
+    if(!swRegistration && "serviceWorker" in navigator){
+      swRegistration = await navigator.serviceWorker.getRegistration("./");
+      if(!swRegistration){
+        swRegistration = await navigator.serviceWorker.register("./sw.js");
       }
     }
 
-    if("caches" in window){
-      const keys = await caches.keys();
-      await Promise.all(keys.filter(key => key.startsWith("nap-check-cache")).map(key => caches.delete(key)));
+    if(!swRegistration){
+      throw new Error("service worker registration not found");
+    }
+
+    let reloaded = false;
+    const reloadOnce = async () => {
+      if(reloaded) return;
+      reloaded = true;
+      currentInstalledVersion = latestAvailableVersion;
+      setStoredInstalledVersion(currentInstalledVersion);
+      window.location.reload();
+    };
+
+    const controllerChangeHandler = () => {
+      navigator.serviceWorker.removeEventListener("controllerchange", controllerChangeHandler);
+      reloadOnce();
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", controllerChangeHandler);
+
+    await swRegistration.update();
+    swRegistration = await navigator.serviceWorker.getRegistration("./") || swRegistration;
+
+    let waitingWorker = swRegistration.waiting || await waitForInstalledWorker(swRegistration);
+
+    if(waitingWorker){
+      waitingWorker.postMessage("SKIP_WAITING");
+      setTimeout(() => {
+        reloadOnce();
+      }, 1500);
+    }else{
+      navigator.serviceWorker.removeEventListener("controllerchange", controllerChangeHandler);
+      currentInstalledVersion = latestAvailableVersion;
+      setStoredInstalledVersion(currentInstalledVersion);
+      versionStatus.innerHTML = `現在のバージョンは最新です。<b>${normalizeVersionText(currentInstalledVersion)}</b>`;
+      updateVersionTexts();
     }
   }catch(err){
     console.error(err);
+    versionStatus.innerHTML = "更新に失敗しました。";
+    updateVersionTexts();
+    renderVersionStatus();
+  }finally{
+    btnUpdate.disabled = !(
+      currentInstalledVersion && latestAvailableVersion && compareVersions(latestAvailableVersion, currentInstalledVersion) > 0
+    );
   }
-
-  window.location.reload();
 });
 
 btnBackup.addEventListener("click", ()=>{
