@@ -22,7 +22,9 @@ const TIME_CONFIG = {
 const DAY_TIMES = buildAllTimes();
 
 const VERSION_INFO_URL = "./version.json";
-const CURRENT_APP_VERSION = "2.0.0";
+const INSTALLED_VERSION_KEY = "nap_installed_version";
+const SW_URL_BASE = "./sw.js";
+const SW_CACHE_PREFIX = "nap-check-cache-";
 
 const tabRecord = document.getElementById("tabRecord");
 const tabCalendar = document.getElementById("tabCalendar");
@@ -988,6 +990,68 @@ function compareVersions(a, b){
   return 0;
 }
 
+function getStoredInstalledVersion(){
+  return localStorage.getItem(INSTALLED_VERSION_KEY) || "";
+}
+
+function setStoredInstalledVersion(version){
+  if(version){
+    localStorage.setItem(INSTALLED_VERSION_KEY, version);
+  }
+}
+
+function buildVersionedSwUrl(version){
+  return version ? `${SW_URL_BASE}?appver=${encodeURIComponent(version)}` : SW_URL_BASE;
+}
+
+function readVersionFromScriptUrl(scriptUrl){
+  try{
+    const url = new URL(scriptUrl, location.href);
+    return url.searchParams.get("appver") || "";
+  }catch{
+    return "";
+  }
+}
+
+async function getCachedInstalledVersion(){
+  if(!("caches" in window)) return "";
+
+  const cacheKeys = await caches.keys();
+  const targetKeys = cacheKeys.filter(key => key.startsWith(SW_CACHE_PREFIX)).sort().reverse();
+
+  for(const key of targetKeys){
+    const cache = await caches.open(key);
+    const res = await cache.match("./version.json") || await cache.match("version.json");
+    if(!res) continue;
+
+    try{
+      const data = await res.json();
+      const version = String(data && data.version || "");
+      if(version) return version;
+    }catch{}
+  }
+
+  return "";
+}
+
+async function ensurePinnedServiceWorker(version){
+  if(!("serviceWorker" in navigator)) return null;
+
+  const registration = await navigator.serviceWorker.getRegistration("./");
+  const activeVersion = registration && registration.active ? readVersionFromScriptUrl(registration.active.scriptURL) : "";
+  const targetUrl = buildVersionedSwUrl(version);
+
+  if(!registration){
+    return await navigator.serviceWorker.register(targetUrl);
+  }
+
+  if(activeVersion === version){
+    return registration;
+  }
+
+  return await navigator.serviceWorker.register(targetUrl);
+}
+
 function updateVersionTexts(){
   currentVersionText.textContent = normalizeVersionText(currentInstalledVersion);
   latestVersionText.textContent = latestAvailableVersion ? normalizeVersionText(latestAvailableVersion) : "確認できません";
@@ -1018,12 +1082,38 @@ async function fetchLatestVersionInfo(){
 }
 
 async function setupVersionFeature(){
-  currentInstalledVersion = CURRENT_APP_VERSION;
+  currentInstalledVersion = getStoredInstalledVersion();
 
   if("serviceWorker" in navigator){
     swRegistration = await navigator.serviceWorker.getRegistration("./");
-    if(!swRegistration){
-      swRegistration = await navigator.serviceWorker.register("./sw.js");
+
+    const activeVersion = swRegistration && swRegistration.active
+      ? readVersionFromScriptUrl(swRegistration.active.scriptURL)
+      : "";
+
+    if(!currentInstalledVersion && activeVersion){
+      currentInstalledVersion = activeVersion;
+    }
+
+    if(!currentInstalledVersion){
+      currentInstalledVersion = await getCachedInstalledVersion();
+    }
+
+    if(!currentInstalledVersion){
+      try{
+        const res = await fetch(VERSION_INFO_URL, { cache:"reload" });
+        if(res.ok){
+          const info = await res.json();
+          currentInstalledVersion = String(info.version || "");
+        }
+      }catch{}
+    }
+
+    if(currentInstalledVersion){
+      setStoredInstalledVersion(currentInstalledVersion);
+      swRegistration = await ensurePinnedServiceWorker(currentInstalledVersion);
+    }else if(!swRegistration){
+      swRegistration = await navigator.serviceWorker.register(SW_URL_BASE);
     }
   }
 
@@ -1091,9 +1181,6 @@ btnUpdate.addEventListener("click", async ()=>{
 
     if(!swRegistration && "serviceWorker" in navigator){
       swRegistration = await navigator.serviceWorker.getRegistration("./");
-      if(!swRegistration){
-        swRegistration = await navigator.serviceWorker.register("./sw.js");
-      }
     }
 
     if(!swRegistration){
@@ -1104,6 +1191,8 @@ btnUpdate.addEventListener("click", async ()=>{
     const reloadOnce = async () => {
       if(reloaded) return;
       reloaded = true;
+      currentInstalledVersion = latestAvailableVersion;
+      setStoredInstalledVersion(currentInstalledVersion);
       window.location.reload();
     };
 
@@ -1113,6 +1202,7 @@ btnUpdate.addEventListener("click", async ()=>{
     };
     navigator.serviceWorker.addEventListener("controllerchange", controllerChangeHandler);
 
+    swRegistration = await navigator.serviceWorker.register(buildVersionedSwUrl(latestAvailableVersion));
     await swRegistration.update();
     swRegistration = await navigator.serviceWorker.getRegistration("./") || swRegistration;
 
@@ -1125,9 +1215,10 @@ btnUpdate.addEventListener("click", async ()=>{
       }, 1500);
     }else{
       navigator.serviceWorker.removeEventListener("controllerchange", controllerChangeHandler);
-      versionStatus.innerHTML = "更新用の新しい版を適用できませんでした。";
+      currentInstalledVersion = latestAvailableVersion;
+      setStoredInstalledVersion(currentInstalledVersion);
+      versionStatus.innerHTML = `現在のバージョンは最新です。<b>${normalizeVersionText(currentInstalledVersion)}</b>`;
       updateVersionTexts();
-      renderVersionStatus();
     }
   }catch(err){
     console.error(err);

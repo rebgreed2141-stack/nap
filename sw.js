@@ -1,4 +1,6 @@
-const CACHE_NAME = "nap-check-cache";
+const APP_VER = new URL(self.location.href).searchParams.get("appver") || "base";
+const CACHE_PREFIX = "nap-check-cache-";
+const CACHE_NAME = `${CACHE_PREFIX}${APP_VER}`;
 
 const CORE_ASSETS = [
   "./",
@@ -10,7 +12,8 @@ const CORE_ASSETS = [
   "./sw.js",
   "./jszip.min.js",
   "./icon-192.png",
-  "./icon-512.png"
+  "./icon-512.png",
+  "./version.json"
 ];
 
 self.addEventListener("install", (event) => {
@@ -28,7 +31,7 @@ self.addEventListener("activate", (event) => {
       const keys = await caches.keys();
       await Promise.all(
         keys
-          .filter((key) => key !== CACHE_NAME)
+          .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
           .map((key) => caches.delete(key))
       );
       await self.clients.claim();
