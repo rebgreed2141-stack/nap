@@ -22,7 +22,7 @@ const TIME_CONFIG = {
 const DAY_TIMES = buildAllTimes();
 
 const VERSION_INFO_URL = "./version.json";
-const INSTALLED_VERSION_KEY = "nap_installed_version";
+const CURRENT_APP_VERSION = "2.0.0";
 
 const tabRecord = document.getElementById("tabRecord");
 const tabCalendar = document.getElementById("tabCalendar");
@@ -988,16 +988,6 @@ function compareVersions(a, b){
   return 0;
 }
 
-function getStoredInstalledVersion(){
-  return localStorage.getItem(INSTALLED_VERSION_KEY) || "";
-}
-
-function setStoredInstalledVersion(version){
-  if(version){
-    localStorage.setItem(INSTALLED_VERSION_KEY, version);
-  }
-}
-
 function updateVersionTexts(){
   currentVersionText.textContent = normalizeVersionText(currentInstalledVersion);
   latestVersionText.textContent = latestAvailableVersion ? normalizeVersionText(latestAvailableVersion) : "確認できません";
@@ -1028,7 +1018,7 @@ async function fetchLatestVersionInfo(){
 }
 
 async function setupVersionFeature(){
-  currentInstalledVersion = getStoredInstalledVersion();
+  currentInstalledVersion = CURRENT_APP_VERSION;
 
   if("serviceWorker" in navigator){
     swRegistration = await navigator.serviceWorker.getRegistration("./");
@@ -1045,10 +1035,6 @@ async function refreshLatestVersionInfo(){
   try{
     const info = await fetchLatestVersionInfo();
     latestAvailableVersion = String(info.version || "");
-    if(!currentInstalledVersion && latestAvailableVersion){
-      currentInstalledVersion = latestAvailableVersion;
-      setStoredInstalledVersion(currentInstalledVersion);
-    }
     updateVersionTexts();
     renderVersionStatus();
     return latestAvailableVersion;
@@ -1118,8 +1104,6 @@ btnUpdate.addEventListener("click", async ()=>{
     const reloadOnce = async () => {
       if(reloaded) return;
       reloaded = true;
-      currentInstalledVersion = latestAvailableVersion;
-      setStoredInstalledVersion(currentInstalledVersion);
       window.location.reload();
     };
 
@@ -1141,10 +1125,9 @@ btnUpdate.addEventListener("click", async ()=>{
       }, 1500);
     }else{
       navigator.serviceWorker.removeEventListener("controllerchange", controllerChangeHandler);
-      currentInstalledVersion = latestAvailableVersion;
-      setStoredInstalledVersion(currentInstalledVersion);
-      versionStatus.innerHTML = `現在のバージョンは最新です。<b>${normalizeVersionText(currentInstalledVersion)}</b>`;
+      versionStatus.innerHTML = "更新用の新しい版を適用できませんでした。";
       updateVersionTexts();
+      renderVersionStatus();
     }
   }catch(err){
     console.error(err);
