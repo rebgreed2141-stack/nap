@@ -42,6 +42,30 @@ const rangeRadios = document.getElementById("rangeRadios");
 const viewStatus = document.getElementById("viewStatus");
 const viewBody = document.getElementById("viewBody");
 
+function captureRecordScrollState(){
+  const state = { windowY: window.scrollY || 0, blocks: new Map() };
+  viewBody.querySelectorAll(".childRow").forEach((row)=>{
+    const childId = row.dataset.childId;
+    const blocks = row.querySelector(".blocks");
+    if(childId && blocks){
+      state.blocks.set(childId, blocks.scrollLeft || 0);
+    }
+  });
+  return state;
+}
+
+function restoreRecordScrollState(state){
+  if(!state) return;
+  viewBody.querySelectorAll(".childRow").forEach((row)=>{
+    const childId = row.dataset.childId;
+    const blocks = row.querySelector(".blocks");
+    if(childId && blocks && state.blocks.has(childId)){
+      blocks.scrollLeft = state.blocks.get(childId) || 0;
+    }
+  });
+  window.scrollTo({ top: state.windowY || 0, left: window.scrollX || 0, behavior: "auto" });
+}
+
 const calendarStatus = document.getElementById("calendarStatus");
 const calendarTitle = document.getElementById("calendarTitle");
 const calendarGrid = document.getElementById("calendarGrid");
@@ -448,8 +472,8 @@ function renderRangeRadios(){
   }
 }
 
-async function renderRecord(){
-  allChildren = await loadChildrenJson();
+function renderRecord(){
+  const scrollState = captureRecordScrollState();
   renderClassRadios();
   renderRangeRadios();
 
@@ -465,6 +489,7 @@ async function renderRecord(){
   for(const child of children){
     const row = document.createElement("div");
     row.className = "childRow";
+    row.dataset.childId = child.id;
 
     const nameBox = document.createElement("div");
     nameBox.className = "childNameBox";
@@ -572,6 +597,8 @@ async function renderRecord(){
     row.appendChild(blocks);
     viewBody.appendChild(row);
   }
+
+  restoreRecordScrollState(scrollState);
 }
 
 function refreshStatuses(){
