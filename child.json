@@ -43,5 +43,15 @@
     "name": "おおつか　あさひ",
     "gender": "m",
     "birthDate": "2025/4/2"
+  },
+  {
+    "id": "c0033",
+    "classId": "momiji",
+    "className": "もみじ",
+    "no": 3,
+    "name": "さいとう　つばさ",
+    "gender": "f",
+    "birthDate": "2025/4/2"
   }
+
 ]
