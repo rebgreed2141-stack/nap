@@ -25,6 +25,8 @@ const VERSION_INFO_URL = "./version.json";
 const INSTALLED_VERSION_KEY = "nap_installed_version";
 const SW_URL_BASE = "./sw.js";
 const SW_CACHE_PREFIX = "nap-check-cache-";
+const SERVER_URL_KEY = "nap_server_url";
+const DEFAULT_SERVER_URL = "http://192.168.1.60:3000";
 
 const tabRecord = document.getElementById("tabRecord");
 const tabCalendar = document.getElementById("tabCalendar");
@@ -74,7 +76,10 @@ const btnNextMonth = document.getElementById("btnNextMonth");
 
 const manageStatus = document.getElementById("manageStatus");
 const yearSelect = document.getElementById("yearSelect");
+const serverUrlInput = document.getElementById("serverUrlInput");
+const btnSaveServerUrl = document.getElementById("btnSaveServerUrl");
 const btnBackup = document.getElementById("btnBackup");
+const btnSendServer = document.getElementById("btnSendServer");
 const btnRestore = document.getElementById("btnRestore");
 const btnDeleteYear = document.getElementById("btnDeleteYear");
 const restoreZipInput = document.getElementById("restoreZipInput");
@@ -109,6 +114,7 @@ async function init(){
     renderRangeRadios();
     updateRecordTabLabel();
     renderYearSelect();
+    loadServerUrlSetting();
     renderRecord();
     renderCalendar();
     renderManageStatus();
@@ -901,6 +907,92 @@ function overwriteDayFromCsvRows(ymd, rows){
   saveDayData(ymd, dayData);
 }
 
+
+function loadServerUrlSetting(){
+  if(!serverUrlInput) return;
+  serverUrlInput.value = localStorage.getItem(SERVER_URL_KEY) || DEFAULT_SERVER_URL;
+}
+
+function saveServerUrlSetting(){
+  if(!serverUrlInput) return;
+  const url = serverUrlInput.value.trim().replace(/\/+$/, "");
+  if(!url){
+    alert("園内PC URLを入力してください。");
+    return;
+  }
+  localStorage.setItem(SERVER_URL_KEY, url);
+  serverUrlInput.value = url;
+  alert("保存しました。");
+}
+
+function buildJsonForFiscalYear(startYear){
+  const range = fiscalYearRange(startYear);
+  const days = [];
+  let current = ymdToDate(range.start);
+  const end = ymdToDate(range.end);
+
+  while(current <= end){
+    const ymd = dateToYmd(current);
+    if(childCountWithRecord(ymd) > 0){
+      days.push({
+        date: ymd,
+        data: loadDayData(ymd)
+      });
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  return {
+    app: "nap",
+    format: "nap-year-json",
+    version: 1,
+    fiscalYear: startYear,
+    range,
+    createdAt: new Date().toISOString(),
+    fileName: `nap_${startYear}.json`,
+    days
+  };
+}
+
+async function sendFiscalYearToServer(startYear){
+  if(!serverUrlInput) return;
+
+  const baseUrl = (serverUrlInput.value.trim() || DEFAULT_SERVER_URL).replace(/\/+$/, "");
+  localStorage.setItem(SERVER_URL_KEY, baseUrl);
+  serverUrlInput.value = baseUrl;
+
+  const payload = buildJsonForFiscalYear(startYear);
+  const range = payload.range;
+  const msg = `${startYear}年度（${range.start}〜${range.end}）のデータをサーバーに送信しますか？\n対象日数：${payload.days.length}`;
+  if(!confirm(msg)) return;
+
+  if(payload.days.length === 0){
+    alert("送信するデータがありません。");
+    return;
+  }
+
+  try{
+    if(btnSendServer) btnSendServer.disabled = true;
+    const res = await fetch(`${baseUrl}/api/nap`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if(!res.ok){
+      const text = await res.text().catch(()=>"");
+      throw new Error(text || `HTTP ${res.status}`);
+    }
+
+    alert(`サーバーに送信しました。\n保存ファイル：${payload.fileName}`);
+  }catch(err){
+    console.error(err);
+    alert("サーバーに送信できませんでした。\n園内PC URL、Wi-Fi、サーバー起動を確認してください。");
+  }finally{
+    if(btnSendServer) btnSendServer.disabled = false;
+  }
+}
+
 async function backupFiscalYearZip(startYear){
   if(typeof JSZip === "undefined"){
     alert("ZIPライブラリを読み込めませんでした。");
@@ -1259,9 +1351,18 @@ btnUpdate.addEventListener("click", async ()=>{
   }
 });
 
+btnSaveServerUrl.addEventListener("click", ()=>{
+  saveServerUrlSetting();
+});
+
 btnBackup.addEventListener("click", ()=>{
   const year = Number(yearSelect.value) || fiscalYearFromYmd(ymdToday());
   backupFiscalYearZip(year);
+});
+
+btnSendServer.addEventListener("click", ()=>{
+  const year = Number(yearSelect.value) || fiscalYearFromYmd(ymdToday());
+  sendFiscalYearToServer(year);
 });
 
 btnRestore.addEventListener("click", ()=> restoreZipInput.click());

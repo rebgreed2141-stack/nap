@@ -16,7 +16,7 @@
   <div class="sub">
     <span>記録・カレンダー・管理</span>
     <span>保存：自動（localStorage）</span>
-    <span>年度のバックアップ／年度のデータ復元／年度のデータ削除</span>
+    <span>年度のバックアップ／サーバー送信／年度のデータ復元／年度のデータ削除</span>
   </div>
 </header>
 
@@ -104,9 +104,25 @@
         </div>
 
         <div class="manageCard">
+          <div class="manageTitle">サーバー接続</div>
+          <div class="manageRow serverRow">
+            <label class="serverLabel" for="serverUrlInput">園内PC URL</label>
+            <input type="url" id="serverUrlInput" value="http://192.168.1.60:3000" autocomplete="off" />
+            <button class="btn secondary" id="btnSaveServerUrl">保存</button>
+          </div>
+        </div>
+
+        <div class="manageCard">
           <div class="manageTitle">年度のバックアップ</div>
           <div class="manageRow">
             <button class="btn secondary" id="btnBackup">年度のバックアップ</button>
+          </div>
+        </div>
+
+        <div class="manageCard">
+          <div class="manageTitle">サーバーに送信</div>
+          <div class="manageRow">
+            <button class="btn" id="btnSendServer">サーバーに送信</button>
           </div>
         </div>
 

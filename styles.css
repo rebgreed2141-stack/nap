@@ -362,13 +362,27 @@ header{
   gap:10px;
   align-items:center;
 }
-select, input[type="file"]{
+select, input[type="file"], input[type="url"]{
   font-size:16px;
   padding:10px 12px;
   border-radius:12px;
   border:1px solid var(--line);
   background:#fff;
   color:var(--text);
+}
+.serverRow{
+  flex-direction:column;
+  align-items:stretch;
+}
+.serverLabel{
+  font-size:13px;
+  font-weight:900;
+}
+#serverUrlInput{
+  width:100%;
+}
+.serverRow .btn{
+  width:100%;
 }
 
 @media (max-width:720px){
