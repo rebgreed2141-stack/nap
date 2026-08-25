@@ -152,12 +152,12 @@ function renderStaffManageList(){
   if(!staffManageList)return; const selected=new Set(getSelectedStaffIds()); staffManageList.innerHTML="";
   for(const staff of allStaff.filter(staff=>staff.active===true)){ const label=document.createElement("label"); label.className="staffCheckItem"; const input=document.createElement("input"); input.type="checkbox"; input.checked=selected.has(staff.id); input.addEventListener("change",()=>{const ids=new Set(getSelectedStaffIds()); if(input.checked)ids.add(staff.id);else ids.delete(staff.id); setSelectedStaffIds([...ids]); renderStaffSelect();}); const span=document.createElement("span"); span.textContent=staff.name||staff.id; label.append(input,span); staffManageList.appendChild(label); }
 }
-function getClassStaffId(ymd,classId){ return loadDayData(ymd).staffByClass?.[classId]||""; }
-function setClassStaffId(ymd,classId,staffId){ const d=loadDayData(ymd); if(!d.staffByClass)d.staffByClass={}; if(staffId)d.staffByClass[classId]=staffId;else delete d.staffByClass[classId]; saveDayData(ymd,d); }
+function getClassStaffName(ymd,classId){ return loadDayData(ymd).staffByClass?.[classId]||""; }
+function setClassStaffName(ymd,classId,staffName){ const d=loadDayData(ymd); if(!d.staffByClass)d.staffByClass={}; if(staffName)d.staffByClass[classId]=staffName;else delete d.staffByClass[classId]; saveDayData(ymd,d); }
 function renderStaffSelect(){
-  if(!staffSelect)return; const current=getClassStaffId(selectedYMD,selectedClassId), available=getAvailableStaff(); staffSelect.innerHTML='<option value="">担当者を選択</option>';
-  for(const staff of available){const o=document.createElement("option");o.value=staff.id;o.textContent=staff.name||staff.id;if(staff.id===current)o.selected=true;staffSelect.appendChild(o);}
-  if(current&&!available.some(s=>s.id===current)){const staff=allStaff.find(s=>s.id===current && s.active===true);if(staff){const o=document.createElement("option");o.value=staff.id;o.textContent=staff.name||staff.id;o.selected=true;staffSelect.appendChild(o);}}
+  if(!staffSelect)return; const current=getClassStaffName(selectedYMD,selectedClassId), available=getAvailableStaff(); staffSelect.innerHTML='<option value="">担当者を選択</option>';
+  for(const staff of available){const name=staff.name||staff.id;const o=document.createElement("option");o.value=name;o.textContent=name;if(name===current)o.selected=true;staffSelect.appendChild(o);}
+  if(current&&!available.some(s=>(s.name||s.id)===current)){const staff=allStaff.find(s=>(s.name||s.id)===current && s.active===true);if(staff){const name=staff.name||staff.id;const o=document.createElement("option");o.value=name;o.textContent=name;o.selected=true;staffSelect.appendChild(o);}}
 }
 
 function buildAllTimes(){
@@ -273,7 +273,12 @@ function normalizeDayData(source){
   const out = createEmptyDayData();
   const srcChildren = source && source.children && typeof source.children === "object" ? source.children : {};
   const srcStaff = source && source.staffByClass && typeof source.staffByClass === "object" ? source.staffByClass : {};
-  out.staffByClass = { ...srcStaff };
+  out.staffByClass = {};
+  for(const [classId, savedStaff] of Object.entries(srcStaff)){
+    if(typeof savedStaff !== "string" || !savedStaff) continue;
+    const staff = allStaff.find(s => s.id === savedStaff);
+    out.staffByClass[classId] = staff?.name || savedStaff;
+  }
 
   for(const [childId, childObj] of Object.entries(srcChildren)){
     const className = childObj && typeof childObj.className === "string" ? childObj.className : "";
@@ -1394,7 +1399,7 @@ btnUpdate.addEventListener("click", async ()=>{
   }
 });
 
-staffSelect?.addEventListener("change",()=>setClassStaffId(selectedYMD,selectedClassId,staffSelect.value));
+staffSelect?.addEventListener("change",()=>setClassStaffName(selectedYMD,selectedClassId,staffSelect.value));
 
 btnSaveServerUrl.addEventListener("click", ()=>{
   saveServerUrlSetting();
