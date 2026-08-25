@@ -27,6 +27,7 @@ const SW_URL_BASE = "./sw.js";
 const SW_CACHE_PREFIX = "nap-check-cache-";
 const SERVER_URL_KEY = "nap_server_url";
 const DEFAULT_SERVER_URL = "http://192.168.1.60:3000";
+const STAFF_SELECTION_KEY = "nap_selected_staff_ids";
 
 const tabRecord = document.getElementById("tabRecord");
 const tabCalendar = document.getElementById("tabCalendar");
@@ -43,6 +44,7 @@ const rangeBar = document.getElementById("rangeBar");
 const rangeRadios = document.getElementById("rangeRadios");
 const viewStatus = document.getElementById("viewStatus");
 const viewBody = document.getElementById("viewBody");
+const staffSelect = document.getElementById("staffSelect");
 
 function captureRecordScrollState(){
   const state = { windowY: window.scrollY || 0, blocks: new Map() };
@@ -83,6 +85,7 @@ const btnSendServer = document.getElementById("btnSendServer");
 const btnRestore = document.getElementById("btnRestore");
 const btnDeleteYear = document.getElementById("btnDeleteYear");
 const restoreZipInput = document.getElementById("restoreZipInput");
+const staffManageList = document.getElementById("staffManageList");
 
 const topVersion = document.getElementById("topVersion");
 const versionStatus = document.getElementById("versionStatus");
@@ -95,6 +98,7 @@ let selectedYMD = ymdToday();
 let selectedClassId = "momiji";
 let selectedRangeId = defaultRangeIdForClass("momiji");
 let allChildren = [];
+let allStaff = [];
 const invalidSelections = new Map();
 
 let currentInstalledVersion = "";
@@ -110,7 +114,10 @@ init();
 async function init(){
   try{
     allChildren = await loadChildrenJson();
+    allStaff = await loadStaffJson();
+    renderStaffManageList();
     renderClassRadios();
+    renderStaffSelect();
     renderRangeRadios();
     updateRecordTabLabel();
     renderYearSelect();
@@ -130,6 +137,27 @@ async function loadChildrenJson(){
   if(!res.ok) throw new Error("child.json fetch failed");
   const json = await res.json();
   return Array.isArray(json) ? json : [];
+}
+
+async function loadStaffJson(){
+  const res = await fetch("./staff_m.json", { cache:"no-store" });
+  if(!res.ok) throw new Error("staff_m.json fetch failed");
+  const json = await res.json();
+  return Array.isArray(json) ? json : [];
+}
+function getSelectedStaffIds(){ try{ const v=JSON.parse(localStorage.getItem(STAFF_SELECTION_KEY)||"[]"); return Array.isArray(v)?v:[]; }catch{return [];} }
+function setSelectedStaffIds(ids){ localStorage.setItem(STAFF_SELECTION_KEY,JSON.stringify(ids)); }
+function getAvailableStaff(){ const ids=new Set(getSelectedStaffIds()); return allStaff.filter(s=>s.active===true && ids.has(s.id)); }
+function renderStaffManageList(){
+  if(!staffManageList)return; const selected=new Set(getSelectedStaffIds()); staffManageList.innerHTML="";
+  for(const staff of allStaff.filter(staff=>staff.active===true)){ const label=document.createElement("label"); label.className="staffCheckItem"; const input=document.createElement("input"); input.type="checkbox"; input.checked=selected.has(staff.id); input.addEventListener("change",()=>{const ids=new Set(getSelectedStaffIds()); if(input.checked)ids.add(staff.id);else ids.delete(staff.id); setSelectedStaffIds([...ids]); renderStaffSelect();}); const span=document.createElement("span"); span.textContent=staff.name||staff.id; label.append(input,span); staffManageList.appendChild(label); }
+}
+function getClassStaffId(ymd,classId){ return loadDayData(ymd).staffByClass?.[classId]||""; }
+function setClassStaffId(ymd,classId,staffId){ const d=loadDayData(ymd); if(!d.staffByClass)d.staffByClass={}; if(staffId)d.staffByClass[classId]=staffId;else delete d.staffByClass[classId]; saveDayData(ymd,d); }
+function renderStaffSelect(){
+  if(!staffSelect)return; const current=getClassStaffId(selectedYMD,selectedClassId), available=getAvailableStaff(); staffSelect.innerHTML='<option value="">担当者を選択</option>';
+  for(const staff of available){const o=document.createElement("option");o.value=staff.id;o.textContent=staff.name||staff.id;if(staff.id===current)o.selected=true;staffSelect.appendChild(o);}
+  if(current&&!available.some(s=>s.id===current)){const staff=allStaff.find(s=>s.id===current && s.active===true);if(staff){const o=document.createElement("option");o.value=staff.id;o.textContent=staff.name||staff.id;o.selected=true;staffSelect.appendChild(o);}}
 }
 
 function buildAllTimes(){
@@ -238,18 +266,22 @@ function storeKey(ymd){
 }
 
 function createEmptyDayData(){
-  return { children:{} };
+  return { children:{}, staffByClass:{} };
 }
 
 function normalizeDayData(source){
   const out = createEmptyDayData();
   const srcChildren = source && source.children && typeof source.children === "object" ? source.children : {};
+  const srcStaff = source && source.staffByClass && typeof source.staffByClass === "object" ? source.staffByClass : {};
+  out.staffByClass = { ...srcStaff };
 
   for(const [childId, childObj] of Object.entries(srcChildren)){
     const className = childObj && typeof childObj.className === "string" ? childObj.className : "";
     const name = childObj && typeof childObj.name === "string" ? childObj.name : "";
     const recordsSrc = childObj && childObj.records && typeof childObj.records === "object" ? childObj.records : {};
-    const records = {};
+    const complexionSrc = childObj && childObj.complexion && typeof childObj.complexion === "object" ? childObj.complexion : {};
+    const breathingSrc = childObj && childObj.breathing && typeof childObj.breathing === "object" ? childObj.breathing : {};
+    const records = {}, complexion = {}, breathing = {};
 
     for(const [time, value] of Object.entries(recordsSrc)){
       if(DAY_TIMES.includes(time) && (value === "u" || value === "d")){
@@ -257,7 +289,9 @@ function normalizeDayData(source){
       }
     }
 
-    out.children[childId] = { className, name, records };
+    for(const [time,value] of Object.entries(complexionSrc)){ if(DAY_TIMES.includes(time)&&value===true) complexion[time]=true; }
+    for(const [time,value] of Object.entries(breathingSrc)){ if(DAY_TIMES.includes(time)&&value===true) breathing[time]=true; }
+    out.children[childId] = { className, name, records, complexion, breathing };
   }
 
   return out;
@@ -286,7 +320,7 @@ function ensureChildExistsInDay(dayData, child){
     dayData.children[child.id] = {
       className: child.className || "",
       name: child.name || "",
-      records:{}
+      records:{}, complexion:{}, breathing:{}
     };
   }
   dayData.children[child.id].className = child.className || "";
@@ -312,6 +346,9 @@ function setStoredValue(ymd, child, time, value){
 
   saveDayData(ymd, dayData);
 }
+
+function getStoredCheck(ymd,childId,time,field){ return loadDayData(ymd).children[childId]?.[field]?.[time]===true; }
+function setStoredCheck(ymd,child,time,field,checked){ const d=loadDayData(ymd); ensureChildExistsInDay(d,child); if(!d.children[child.id][field])d.children[child.id][field]={}; if(checked)d.children[child.id][field][time]=true;else delete d.children[child.id][field][time]; saveDayData(ymd,d); }
 
 function childCountWithRecord(ymd){
   const dayData = loadDayData(ymd);
@@ -341,13 +378,14 @@ function getInvalidKey(childId, time){
 function getEffectiveState(childId, time){
   const invalid = invalidSelections.get(getInvalidKey(childId, time));
   if(invalid){
-    return { supine:true, prone:true, invalid:true };
+    return { supine:true, prone:true, complexion:getStoredCheck(selectedYMD,childId,time,"complexion"), breathing:getStoredCheck(selectedYMD,childId,time,"breathing"), invalid:true };
   }
 
   const stored = getStoredValue(selectedYMD, childId, time);
   return {
     supine: stored === "u",
     prone: stored === "d",
+    complexion:getStoredCheck(selectedYMD,childId,time,"complexion"), breathing:getStoredCheck(selectedYMD,childId,time,"breathing"),
     invalid: false
   };
 }
@@ -432,7 +470,7 @@ function renderClassRadios(){
     input.addEventListener("change", ()=>{
       selectedClassId = cls.id;
       selectedRangeId = defaultRangeIdForClass(selectedClassId);
-      renderRangeRadios();
+      renderRangeRadios(); renderStaffSelect();
       renderRecord();
     });
 
@@ -480,6 +518,10 @@ function renderRangeRadios(){
 
 function renderRecord(){
   const scrollState = captureRecordScrollState();
+
+  // クラス別の表示調整用。もみじ組では項目名列を広くする。
+  document.body.classList.toggle("class-momiji", selectedClassId === "momiji");
+
   renderClassRadios();
   renderRangeRadios();
 
@@ -555,12 +597,13 @@ function renderRecord(){
       proneHead.className = "rowLabel";
       proneHead.textContent = "うつ伏せ";
       proneRow.appendChild(proneHead);
+      const complexionRow=document.createElement("tr"), complexionHead=document.createElement("th"); complexionHead.className="rowLabel"; complexionHead.textContent="顔色"; complexionRow.appendChild(complexionHead);
+      const breathingRow=document.createElement("tr"), breathingHead=document.createElement("th"); breathingHead.className="rowLabel"; breathingHead.textContent="呼吸状態"; breathingRow.appendChild(breathingHead);
 
       for(const time of hourTimes){
         const state = getEffectiveState(child.id, time);
 
-        const supineCell = document.createElement("td");
-        const proneCell = document.createElement("td");
+        const supineCell=document.createElement("td"), proneCell=document.createElement("td"), complexionCell=document.createElement("td"), breathingCell=document.createElement("td");
 
         if(state.invalid){
           supineCell.classList.add("invalidCell");
@@ -589,12 +632,12 @@ function renderRecord(){
         proneWrap.appendChild(proneInput);
         proneCell.appendChild(proneWrap);
 
-        supineRow.appendChild(supineCell);
-        proneRow.appendChild(proneCell);
+        const complexionWrap=document.createElement("label"); complexionWrap.className="checkWrap"; const complexionInput=document.createElement("input"); complexionInput.type="checkbox"; complexionInput.checked=state.complexion; complexionInput.addEventListener("change",e=>setStoredCheck(selectedYMD,child,time,"complexion",e.target.checked)); complexionWrap.appendChild(complexionInput); complexionCell.appendChild(complexionWrap);
+        const breathingWrap=document.createElement("label"); breathingWrap.className="checkWrap"; const breathingInput=document.createElement("input"); breathingInput.type="checkbox"; breathingInput.checked=state.breathing; breathingInput.addEventListener("change",e=>setStoredCheck(selectedYMD,child,time,"breathing",e.target.checked)); breathingWrap.appendChild(breathingInput); breathingCell.appendChild(breathingWrap);
+        supineRow.appendChild(supineCell); proneRow.appendChild(proneCell); complexionRow.appendChild(complexionCell); breathingRow.appendChild(breathingCell);
       }
 
-      table.appendChild(supineRow);
-      table.appendChild(proneRow);
+      table.appendChild(supineRow); table.appendChild(proneRow); table.appendChild(complexionRow); table.appendChild(breathingRow);
       block.appendChild(table);
       blocks.appendChild(block);
     }
@@ -894,7 +937,7 @@ function overwriteDayFromCsvRows(ymd, rows){
     const childName = row[2] || "";
     if(!childId) continue;
 
-    dayData.children[childId] = { className, name: childName, records:{} };
+    dayData.children[childId] = { className, name: childName, records:{}, complexion:{}, breathing:{} };
 
     for(let i = 0; i < DAY_TIMES.length; i++){
       const value = row[i + 3] || "";
@@ -1350,6 +1393,8 @@ btnUpdate.addEventListener("click", async ()=>{
     );
   }
 });
+
+staffSelect?.addEventListener("change",()=>setClassStaffId(selectedYMD,selectedClassId,staffSelect.value));
 
 btnSaveServerUrl.addEventListener("click", ()=>{
   saveServerUrlSetting();

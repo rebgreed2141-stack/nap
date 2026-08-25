@@ -438,3 +438,73 @@ select, input[type="file"], input[type="url"]{
   cursor:default;
   opacity:.45;
 }
+
+.staffBar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--line);background:#fff}.staffBar label{font-size:14px;font-weight:900}.staffBar select{min-width:190px;padding:7px 10px;font-size:15px}.staffManageList{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}.staffCheckItem{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;cursor:pointer}.staffCheckItem input{width:20px;height:20px}.staffCheckItem span{font-weight:700}.rowLabel{white-space:nowrap}
+
+/* nap row label width adjustment */
+.napTable th.rowLabel,
+.napTable .rowLabel{
+  min-width: 88px;
+  width: 88px;
+  padding-left: 8px;
+  padding-right: 8px;
+  white-space: nowrap;
+}
+.napTable{
+  table-layout: auto;
+}
+
+/* もみじ(5分刻み)・どんぐり共通：項目名がチェック欄に重ならない */
+.mini th.rowLabel,
+.mini .rowLabel{
+  width: 84px !important;
+  min-width: 84px !important;
+  max-width: 84px !important;
+  box-sizing: border-box;
+  padding-left: 7px !important;
+  padding-right: 7px !important;
+  white-space: nowrap !important;
+  overflow: visible;
+}
+
+/* もみじは1時間12枠なので、ラベル幅を増やした分だけ時間ブロックも広げる */
+.hourBlock{
+  min-width: 448px !important;
+}
+
+/* 項目名列を確実に広げ、チェックボックスとの重なりを防止 */
+.hourBlock .mini{
+  table-layout: fixed !important;
+}
+
+.hourBlock .mini th.rowLabel,
+.hourBlock .mini td.rowLabel,
+.hourBlock .mini .rowLabel{
+  width: 105px !important;
+  min-width: 105px !important;
+  max-width: 105px !important;
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+  box-sizing: border-box !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+}
+
+/* 5分刻み12列 + 項目名105px を確保 */
+.hourBlock{
+  min-width: 500px !important;
+}
+
+/* もみじ組だけ：項目名（仰向け・うつ伏せ・顔色・呼吸状態）の幅を2倍 */
+body.class-momiji .hourBlock .mini th.rowLabel,
+body.class-momiji .hourBlock .mini td.rowLabel,
+body.class-momiji .hourBlock .mini .rowLabel{
+  width: 258px !important;
+  min-width: 258px !important;
+  max-width: 258px !important;
+}
+
+/* もみじ組だけ、項目名を広げた分を時間ブロックにも追加 */
+body.class-momiji .hourBlock{
+  min-width: 653px !important;
+}

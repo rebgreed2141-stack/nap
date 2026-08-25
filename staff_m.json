@@ -1,0 +1,14 @@
+﻿[
+  {"id": "S0001", "name": "笹沼　陽平", "name2": "ささぬま　ようへい", "hiredate": "2025/4/1", "active": true},
+  {"id": "S0002", "name": "山崎　誠一郎", "name2": "やまざき　せいいちろう", "hiredate": "2025/4/1", "active": false},
+  {"id": "S0003", "name": "渡辺　紗希", "name2": "わたなべ　さき", "hiredate": "2025/4/1", "active": true},
+  {"id": "S0004", "name": "大谷　久美子", "name2": "おおや　くみこ", "hiredate": "2025/4/1", "active": true},
+  {"id": "S0005", "name": "平谷　健", "name2": "ひらたに　たけし", "hiredate": "2025/4/1", "active": true},
+  {"id": "S0006", "name": "鈴木　美里", "name2": "すずき　みさと", "hiredate": "2025/4/1", "active": true},
+  {"id": "S0007", "name": "津久井　恵", "name2": "つくい　めぐみ", "hiredate": "2025/4/1", "active": true},
+  {"id": "S0008", "name": "坂巻　智子", "name2": "さかまき　ともこ", "hiredate": "2025/4/1", "active": true},
+  {"id": "S0009", "name": "大貫　百合子", "name2": "おおぬき　ゆりこ", "hiredate": "2025/4/1", "active": true},
+  {"id": "S0010", "name": "石橋　浩一", "name2": "いしばし　こういち", "hiredate": "2025/4/1", "active": true},
+  {"id": "S0011", "name": "糟谷　なつみ", "name2": "かすや　なつみ", "hiredate": "2026/5/7", "active": true},
+  {"id": "S0012", "name": "鈴木　麗音", "name2": "すずき　りお", "hiredate": "2026/7/1", "active": false}
+]
