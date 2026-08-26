@@ -859,6 +859,10 @@ function escapeCsv(value){
 }
 
 function csvHeader(){
+  return ["rowType", "childId", "className", "childName", "staffName", ...DAY_TIMES];
+}
+
+function legacyCsvHeader(){
   return ["childId", "className", "childName", ...DAY_TIMES];
 }
 
@@ -868,15 +872,27 @@ function buildCsvForDay(ymd){
   rows.push(csvHeader().map(escapeCsv).join(","));
 
   for(const [childId, childObj] of Object.entries(dayData.children)){
-    const hasAny = Object.keys(childObj.records || {}).length > 0;
+    const records = childObj.records || {};
+    const complexion = childObj.complexion || {};
+    const breathing = childObj.breathing || {};
+    const hasAny = Object.keys(records).length > 0 || Object.keys(complexion).length > 0 || Object.keys(breathing).length > 0;
     if(!hasAny) continue;
 
-    const row = [
-      childId,
-      childObj.className || "",
-      childObj.name || "",
-      ...DAY_TIMES.map(time => childObj.records[time] || "")
-    ];
+    const common = [childId, childObj.className || "", childObj.name || "", ""];
+
+    const recordRow = ["record", ...common, ...DAY_TIMES.map(time => records[time] || "")];
+    const complexionRow = ["complexion", ...common, ...DAY_TIMES.map(time => complexion[time] === true ? "true" : "")];
+    const breathingRow = ["breathing", ...common, ...DAY_TIMES.map(time => breathing[time] === true ? "true" : "")];
+
+    rows.push(recordRow.map(escapeCsv).join(","));
+    rows.push(complexionRow.map(escapeCsv).join(","));
+    rows.push(breathingRow.map(escapeCsv).join(","));
+  }
+
+  for(const cls of CLASS_DEFS){
+    const staffName = dayData.staffByClass?.[cls.id] || "";
+    if(!staffName) continue;
+    const row = ["staff", cls.id, cls.label, "", staffName, ...DAY_TIMES.map(()=>"")];
     rows.push(row.map(escapeCsv).join(","));
   }
 
@@ -909,16 +925,30 @@ function parseCsvLine(line){
   return result;
 }
 
+function headerMatches(header, expected){
+  if(header.length !== expected.length) return false;
+  for(let i = 0; i < expected.length; i++){
+    if(header[i] !== expected[i]) return false;
+  }
+  return true;
+}
+
 function parseCsv(text){
   const lines = text.replace(/^\uFEFF/, "").replace(/\r/g, "").split("\n").filter(line => line !== "");
   if(lines.length === 0) return null;
 
-  const expected = csvHeader();
   const header = parseCsvLine(lines[0]);
-  if(header.length !== expected.length) return null;
+  let format = "";
+  let expected = null;
 
-  for(let i = 0; i < expected.length; i++){
-    if(header[i] !== expected[i]) return null;
+  if(headerMatches(header, csvHeader())){
+    format = "v2";
+    expected = csvHeader();
+  }else if(headerMatches(header, legacyCsvHeader())){
+    format = "legacy";
+    expected = legacyCsvHeader();
+  }else{
+    return null;
   }
 
   const rows = [];
@@ -930,24 +960,63 @@ function parseCsv(text){
     rows.push(cols.slice(0, expected.length));
   }
 
-  return rows;
+  return { format, rows };
 }
 
-function overwriteDayFromCsvRows(ymd, rows){
+function overwriteDayFromCsvRows(ymd, parsed){
   const dayData = createEmptyDayData();
 
-  for(const row of rows){
-    const childId = row[0];
-    const className = row[1] || "";
-    const childName = row[2] || "";
-    if(!childId) continue;
+  if(parsed.format === "legacy"){
+    for(const row of parsed.rows){
+      const childId = row[0];
+      const className = row[1] || "";
+      const childName = row[2] || "";
+      if(!childId) continue;
 
-    dayData.children[childId] = { className, name: childName, records:{}, complexion:{}, breathing:{} };
+      dayData.children[childId] = { className, name: childName, records:{}, complexion:{}, breathing:{} };
 
-    for(let i = 0; i < DAY_TIMES.length; i++){
-      const value = row[i + 3] || "";
-      if(value === "u" || value === "d"){
-        dayData.children[childId].records[DAY_TIMES[i]] = value;
+      for(let i = 0; i < DAY_TIMES.length; i++){
+        const value = row[i + 3] || "";
+        if(value === "u" || value === "d"){
+          dayData.children[childId].records[DAY_TIMES[i]] = value;
+        }
+      }
+    }
+  }else{
+    for(const row of parsed.rows){
+      const rowType = row[0] || "";
+      const childId = row[1] || "";
+      const className = row[2] || "";
+      const childName = row[3] || "";
+      const staffName = row[4] || "";
+
+      if(rowType === "staff"){
+        if(childId && staffName){
+          dayData.staffByClass[childId] = staffName;
+        }
+        continue;
+      }
+
+      if(!childId || !["record", "complexion", "breathing"].includes(rowType)) continue;
+
+      if(!dayData.children[childId]){
+        dayData.children[childId] = { className, name: childName, records:{}, complexion:{}, breathing:{} };
+      }else{
+        if(className) dayData.children[childId].className = className;
+        if(childName) dayData.children[childId].name = childName;
+      }
+
+      for(let i = 0; i < DAY_TIMES.length; i++){
+        const value = row[i + 5] || "";
+        const time = DAY_TIMES[i];
+
+        if(rowType === "record"){
+          if(value === "u" || value === "d") dayData.children[childId].records[time] = value;
+        }else if(rowType === "complexion"){
+          if(String(value).toLowerCase() === "true" || value === "1") dayData.children[childId].complexion[time] = true;
+        }else if(rowType === "breathing"){
+          if(String(value).toLowerCase() === "true" || value === "1") dayData.children[childId].breathing[time] = true;
+        }
       }
     }
   }
@@ -1091,10 +1160,10 @@ async function restoreFiscalYearZip(file){
 
     const ymd = match[1];
     const text = new TextDecoder("utf-8").decode(await zip.files[name].async("uint8array"));
-    const rows = parseCsv(text);
-    if(!rows) continue;
+    const parsed = parseCsv(text);
+    if(!parsed) continue;
 
-    overwriteDayFromCsvRows(ymd, rows);
+    overwriteDayFromCsvRows(ymd, parsed);
     imported++;
   }
 
